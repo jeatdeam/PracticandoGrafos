@@ -61,7 +61,7 @@ class Usuario:
 
         if not generos_obtenidos:
             # self.genero_preferido = "Sin preferido"
-            print(f'{self.nombre} no vio ninguna película todavía.')
+            print(f'{self.nombre} no vio ninguna película todavía. Por ende, no tiene genero favorito')
             return
 
         contador = Counter(generos_obtenidos)
