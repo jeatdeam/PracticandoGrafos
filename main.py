@@ -6,6 +6,7 @@ import networkx as nx
 from faker import Faker
 from usuario import Usuario
 import pandas as pd
+import graphviz as gv
 
 
 fake = Faker("es_ES")
@@ -86,6 +87,61 @@ class Project_Streaming:
 
 
 
+    def dfs(self, s):
+        n = len(self.grafo)
+        path = [-1]*n
+        visited = [False]*n
+
+        def _dfs(u):
+            visited[u] = True
+            for v in range(n):
+                 if not visited[v]:
+                     path[v] = u
+                     _dfs(v)
+        _dfs(s)
+        return path
+
+
+    def draw_dfs(self, directed, path):
+        graph = gv.Digraph('grafoD1') if directed else gv.Graph('grafoND1')       
+        n = len(self.grafo)
+        added = set()
+
+        for u, v in enumerate(path):
+            if v != -1:
+                added.add((v,u))
+                graph.edge(str(v), str(u), color = "blue")
+                if not directed:
+                    graph.edge(str(u), str(v))
+
+        for u in range(1, n):
+            for v in self.grafo[u]:
+                if directed:
+                    if (u, v) not in added:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                else:
+                    if (u, v) not in added and (v, u) not in added:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                        added.add((v, u))
+
+
+    def bfs(self, s):
+        n = len(self.grafo)
+        visited = [False]*n
+        path = [-1]*n
+        queue = [s]
+        visited[s] = True
+
+        while queue:
+            u = queue.pop(0)
+            for v in range(n):
+                if self.grafo[u][v] == 1 and not visited[v]:
+                    visited[v] = True
+                    path[v] = u
+                    queue.append(v)
+
     def generar_grafo(self):
         # Asignamos las conexiones (aristas) del grafo
         for id_usuario_1, usuario_1 in self.usuarios_registrados.items():
@@ -104,6 +160,7 @@ class Project_Streaming:
 
         print("--------------------------------------")
         print(self.grafo)
+        print(len(self.grafo))
         print("--------------------------------------")
 
 
@@ -180,8 +237,8 @@ def menu_opcion():
 
         try: 
             opcion = int(input("Ingrese una opcion: "))
-            if(opcion < 1 or opcion > 6):
-                print('Error: ingrese un numero valido (1 - 5)')
+            if(opcion < 1 or opcion > 7):
+                print('Error: ingrese un numero valido (1 - 7)')
             else:
                 break
         except ValueError:
@@ -246,6 +303,9 @@ def menu():
                case 7:
                    os.system('cls' if os.name == 'nt' else 'clear')
                    print("***************************************************")
+                   path = project_streaming.dfs(2)
+                   print(path)
+                   project_streaming.draw_dfs(True, path)
                    print('llegamos al final')
                    print("***************************************************")
                    break
