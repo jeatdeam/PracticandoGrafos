@@ -8,6 +8,12 @@ from usuario import Usuario
 import pandas as pd
 import graphviz as gv
 
+import os
+from IPython.display import display
+
+# Agregamos correctamente la ruta al PATH de las variables de entorno de la sesión
+os.environ["PATH"] += os.pathsep + r"C:\Program Files\Graphviz\bin"
+
 
 fake = Faker("es_ES")
 
@@ -19,8 +25,8 @@ datos = pd.read_csv('peliculas_streaming_1000.csv')
 # print(datos["movie_id"])
 
 
-CANTIDAD_USUARIOS = 5
-CANTIDAD_PELICULAS_VISTAS = 10
+CANTIDAD_USUARIOS = 25
+CANTIDAD_PELICULAS_VISTAS = 100
 PELICULAS_A_RECOMENDAR = 5
 
 
@@ -41,49 +47,92 @@ class Project_Streaming:
     def __init__(self):
         self.usuarios_registrados = {}
         self.grafo = {}
+        self.grafo_dirigido = []
 
 
 
     def generar_usuarios(self):
+        self.usuarios_registrados = {}
+        
+        # 1. Guardamos temporalmente las líneas formateadas en una lista
+        lineas_impresion = []
 
-        for indice, _  in enumerate(range(CANTIDAD_USUARIOS)):
+        for indice, _ in enumerate(range(CANTIDAD_USUARIOS)):
             nombre = fake.first_name()
             apellido = fake.last_name()
             correo = fake.email()
 
             nuevo_usuario = Usuario(nombre, apellido, correo, indice + 1)
+            self.usuarios_registrados[indice] = nuevo_usuario 
 
-            # print("\n")
-            print(f"{indice+1} {nuevo_usuario.nombre} {nuevo_usuario.apellido}") 
-            self.usuarios_registrados[indice + 1] = nuevo_usuario
+            # Creamos el texto de cada usuario
+            texto_usuario = f"{indice+1}: {nuevo_usuario.nombre} {nuevo_usuario.apellido}"
+            lineas_impresion.append(texto_usuario)
+
+        # 2. Imprimimos en 2 columnas (dividimos la lista a la mitad)
+        mitad = (len(lineas_impresion) + 1) // 2
+
+        for i in range(mitad):
+            # Obtenemos el elemento de la columna izquierda
+            columna_izq = lineas_impresion[i]
+            
+            # Verificamos si existe un elemento correspondiente para la columna derecha
+            columna_der = lineas_impresion[i + mitad] if (i + mitad) < len(lineas_impresion) else ""
+
+            # Imprimimos ambos lados alineados (el '35' es el ancho del espacio para la columna izquierda)
+            print(f"{columna_izq:<35} | {columna_der}")
 
 
     def asignar_peliculas(self):
-
         for indice, _ in enumerate(self.usuarios_registrados):
-            #asigno peliculas vistas.
+            # Asigno películas vistas.
             peliculas_vistas = random.randint(0, CANTIDAD_PELICULAS_VISTAS)
 
+            print(f"Usuario {indice + 1} ---------------------------------------------------------------- [peliculas vistas] ")
 
-            print(f"Usuario {indice + 1} [peliculas vistas] ------------------------")
+            if peliculas_vistas == 0:
+                print("-El usuario aun no ha visto ninguna pelicula")
+            
+            # Lista temporal para guardar los títulos de este usuario
+            titulos_usuario = []
 
-            for _ in range(peliculas_vistas):
-                posicion_random = random.randint(0, len(datos)-1)
-                #aqui si pasamos .to_dick() sin parametros nos dara un diccionario donde las claves seran las columnas y dentro guardara otro diccionario {'usuario':{0: 'user', 1:'user_2'}}
+            for i in range(peliculas_vistas):
+                posicion_random = random.randint(0, len(datos) - 1)
                 pelicula_dict = datos.iloc[posicion_random].to_dict()
+                
+                # Guardamos el título y registramos la película
+                titulos_usuario.append(pelicula_dict["titulo"])
+                self.usuarios_registrados[indice].ver_pelicula(pelicula_dict)
 
-                print(f'- {pelicula_dict["titulo"]}')
-                self.usuarios_registrados[indice + 1].ver_pelicula(pelicula_dict)     
+            # Imprimir en dos columnas recorriendo de 2 en 2
+            for i in range(0, len(titulos_usuario), 2):
+                col1 = f"{i + 1}. {re.sub(r'\d','',titulos_usuario[i])}"
+                
+                # Verificamos si existe una segunda columna para este par
+                if i + 1 < len(titulos_usuario):
+                    col2 = f"{i + 2}. {re.sub(r'\d','',titulos_usuario[i + 1])}"
+                    # Usamos un ancho fijo (ej. 50 espacios) para alinear la segunda columna
+                    print(f"{col1:<50} | {col2}")
+                else:
+                    # Si es número impar, solo imprimimos la primera columna
+                    print(f"{col1}")
 
-            # self.usuarios_registrados[indice + 1].obtener_generos_vistos()
+            print("------------------------------------------------------------------------------------------")
+            print("\n")   
 
 
        
     def mostrar_generos_usuario(self):
 
-        for indice, usuario in enumerate(self.usuarios_registrados):
-            print(f'Usuario {indice + 1} [genero favorito] -----------------')
-            print(f"-  {self.usuarios_registrados[indice + 1].obtener_generos_vistos()}")            
+        print("----------------------------------------------------------[genero favorito]")
+
+        for clave, valor in self.usuarios_registrados.items():
+            # print(f'Usuario {clave}: {valor.get_nombre()} -------------------- ', end = "")
+            info_usuario = f"Usuario {clave}: {valor.get_nombre()}"
+            print(f"{info_usuario:<25}    -------------------------->      ", end = "")
+            if self.usuarios_registrados[clave].obtener_generos_vistos() != None:
+                    print(self.usuarios_registrados[clave].obtener_generos_vistos())
+
 
 
 
@@ -102,29 +151,32 @@ class Project_Streaming:
         return path
 
 
-    def draw_dfs(self, directed, path):
-        graph = gv.Digraph('grafoD1') if directed else gv.Graph('grafoND1')       
-        n = len(self.grafo)
-        added = set()
+    # def draw_dfs(self, directed, path):
+    #     graph = gv.Digraph('grafoD1') if directed else gv.Graph('grafoND1')       
+    #     n = len(self.grafo)
+    #     added = set()
 
-        for u, v in enumerate(path):
-            if v != -1:
-                added.add((v,u))
-                graph.edge(str(v), str(u), color = "blue")
-                if not directed:
-                    graph.edge(str(u), str(v))
+    #     for u, v in enumerate(path):
+    #         if v != -1:
+    #             added.add((v,u))
+    #             graph.edge(str(v), str(u), color = "blue")
+    #             if not directed:
+    #                 graph.edge(str(u), str(v))
 
-        for u in range(1, n):
-            for v in self.grafo[u]:
-                if directed:
-                    if (u, v) not in added:
-                        graph.edge(str(u), str(v))
-                        added.add((u,v))
-                else:
-                    if (u, v) not in added and (v, u) not in added:
-                        graph.edge(str(u), str(v))
-                        added.add((u,v))
-                        added.add((v, u))
+    #     for u in range(1, n + 1):
+    #         for v in self.grafo[u]:
+    #             if directed:
+    #                 if (u, v) not in added:
+    #                     graph.edge(str(u), str(v))
+    #                     added.add((u,v))
+    #             else:
+    #                 if (u, v) not in added and (v, u) not in added:
+    #                     graph.edge(str(u), str(v))
+    #                     added.add((u,v))
+    #                     added.add((v, u))
+
+    #     graph.render('resultado_dfsa', format='png', cleanup=True)
+    #     print("¡Grafo guardado como 'resultado_dfs.png' en tu carpeta!")
 
 
     def bfs(self, s):
@@ -142,8 +194,29 @@ class Project_Streaming:
                     path[v] = u
                     queue.append(v)
 
+
+
+    def obtener_sub_grafo(self):
+
+        n = len(self.grafo_dirigido)
+        visited = [False]*n
+        sub_grafos = []
+
+        def _dfs(u):
+            visited[u] = True
+            for v in self.grafo_dirigido[u]:
+                if not visited[v]:
+                    _dfs(v)
+
+
+
+
+
     def generar_grafo(self):
         # Asignamos las conexiones (aristas) del grafo
+
+        self.grafo_dirigido = []
+
         for id_usuario_1, usuario_1 in self.usuarios_registrados.items():
             # Inicializamos la lista de adyacencia para el usuario actual
             self.grafo[id_usuario_1] = []
@@ -158,10 +231,49 @@ class Project_Streaming:
                     # Puedes guardar el objeto entero o solo su ID (recomendado ID para grafos)
                     self.grafo[id_usuario_1].append(id_usuario_2)
 
-        print("--------------------------------------")
-        print(self.grafo)
-        print(len(self.grafo))
-        print("--------------------------------------")
+        for _, valor in self.grafo.items():
+            self.grafo_dirigido.append(valor)
+
+        print("---------------------------------------------------")
+        print("[")
+        for indice, nodo in enumerate(self.grafo_dirigido):
+            print(f" {self.usuarios_registrados[indice].nombre} ",nodo)
+        print("]")
+        print("---------------------------------------------------")
+
+
+    def mostrar_subGrafo(self,  posicion, directed = False):
+        graph = gv.Digraph('grafoD1') if directed else gv.Graph('grafoND1')
+        n = len(self.grafo_dirigido[posicion])
+        added = set()
+
+
+        graph.node(str(posicion), f"{self.usuarios_registrados[posicion].nombre}-{posicion}")
+
+        aux_seccion_grafo = list(self.grafo_dirigido[posicion]) + [posicion]
+
+        usuario_genero = self.usuarios_registrados[0].genero_preferido
+
+        for u in self.grafo_dirigido[posicion]:
+            graph.node(str(u), f"{self.usuarios_registrados[u].nombre}-{u}")
+
+        graph.node(usuario_genero, usuario_genero, color = "lightblue", fillcolor = "lightblue", style="filled")
+
+
+        for u in aux_seccion_grafo:
+            graph.edge(usuario_genero, str(u), color = "blue")
+            for v in self.grafo_dirigido[posicion]:
+                if (u,v) not in added and u != v:
+                    if directed:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                    else:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                        added.add((v,u))
+
+
+        graph.render(filename="sub_grafo", format = "png", cleanup=True)
 
 
     def mostrar_grafoMA(self):
@@ -185,32 +297,90 @@ class Project_Streaming:
 
 
     def generar_recomendaciones(self):
+
+        # print(datos.sample(n = 1).values[0])
             
         def recomendar_peliculas(usuario):
             peliculas_usuario = [ pelicula['titulo']  for pelicula in usuario.get_peliculasVistas()]
 
             peliculas_recomendadas = []
             contador = 0
-            for indice, pelicula in enumerate(datos["titulo"]):
+
+            genero_usuario = str(usuario.genero_preferido)
+
+            peliculas_filtradas = datos[datos['genero'] == genero_usuario].to_dict(orient="records")
+
+            print(f"Usuario {usuario.nombre}")
+
+
+            for indice, pelicula in enumerate(peliculas_filtradas):
                 if contador == PELICULAS_A_RECOMENDAR:
-                    break 
-                if pelicula not in peliculas_usuario:
+                   break 
+                if pelicula['titulo'] not in peliculas_usuario:
                       contador += 1
-                      pelicula_agregada = datos[datos["titulo"] == pelicula].to_dict(orient='records')[0]
 
-                      print(f'\n{indice + 1} Aqui va una pelicula agregada: {pelicula}')
+                    #   pelicula_agregada = datos[datos["titulo"] == pelicula].to_dict(orient='records')[0]
+
+                      print(f"{indice + 1}.", re.sub(r"\d", "", pelicula['titulo']))
                     #   print( pelicula_agregada)
-                      peliculas_recomendadas.append(pelicula_agregada)
+                      peliculas_recomendadas.append(pelicula)
 
-
-            print('---estas son las peliculas a recomendar----')
-            print(peliculas_recomendadas)
-
+            # print(peliculas_recomendadas)
+            print("\n")
             usuario.asignar_peliculasRecomendadas(peliculas_recomendadas)
     
     
         for indice, _ in enumerate(self.usuarios_registrados):
-            recomendar_peliculas(self.usuarios_registrados[indice+1])
+            recomendar_peliculas(self.usuarios_registrados[indice])
+
+
+
+    def grafico_grafo(self, directed = False, path = []):
+         
+        graph = gv.Digraph('grafoD1') if directed else gv.Graph('grafoND1')
+        n = len(self.grafo_dirigido)
+
+        added = set()
+
+
+        generos_filtrados = set()
+
+        for u in range(n):
+            graph.node(str(u), f"{self.usuarios_registrados[u].nombre}-{u}")
+            genero = self.usuarios_registrados[u].genero_preferido
+            if genero == None:
+                generos_filtrados.add("sin peliculas vistas")
+            else:
+                generos_filtrados.add(genero)
+
+        lista_generos = list(generos_filtrados)
+
+        # -----------------------------
+        for genero in lista_generos:
+            graph.node(genero, genero, color = "lightblue", fillcolor = "lightblue", style="filled")
+
+        # graph.node(str("999"), usuario_genero, color = "lightblue", fillcolor = "lightblue", style="filled")
+
+        for u in range(n):
+            if self.usuarios_registrados[u].genero_preferido == None:
+                graph.edge('sin peliculas vistas', str(u), color="blue") 
+            else:
+                genero_usuario = self.usuarios_registrados[u].genero_preferido
+                graph.edge(genero_usuario, str(u), color = "blue")
+
+            for v in self.grafo_dirigido[u]:
+
+                if (u,v) not in added:
+                    if directed:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                    else:
+                        graph.edge(str(u), str(v))
+                        added.add((u,v))
+                        added.add((v,u))
+
+
+        graph.render(filename="grafito_clientes", format = "png", cleanup = True)
 
 
     def mostrar_menu():
@@ -219,16 +389,7 @@ class Project_Streaming:
 
 
 
-
-
 project_streaming = Project_Streaming()
-
-# project_streaming.generar_usuarios()
-# project_streaming.asignar_peliculas()
-# project_streaming.generar_grafo()
-# project_streaming.mostrar_grafoMA()
-# project_streaming.generar_recomendaciones()
-
 
 
 def menu_opcion():
@@ -252,7 +413,7 @@ def menu():
 
     while(True):
            os.system('cls' if os.name == 'nt' else 'clear')
-           print("***************************************************")
+           print("************************* Menu Streaming **************************")
            print("1. Generar usuarios")
            print("2. Asignar peliculas")
            print("3. Mostrar generos favoritos")
@@ -260,52 +421,61 @@ def menu():
            print("5. Mostrar grafo")
            print("6. Generar recomendaciones")
            print("7. Salir")
-           print("***************************************************")
+           print("*******************************************************************")
            opcion = menu_opcion()
            
            match opcion:
                case 1:
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
+                   print("************************* Usuarios registrados ******************************")
                    project_streaming.generar_usuarios()
-                   print("***************************************************")
+                   print("*****************************************************************************")
                    input('Presione una tecla para continuar ... ')
                case 2: 
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
+                #    print("***************************************************\n")
                    project_streaming.asignar_peliculas()
-                   print("***************************************************")
+                #    print("\n***************************************************")
                    input('Presione una tecla para continuar ... ')
                case 3:
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
+                   print("*************************** Generos mas vistos por los usuarios ***************************")
                    project_streaming.mostrar_generos_usuario()
-                   print("***************************************************")
+                   print("*******************************************************************************************")
                    input('Presione una tecla para continuar')
                case 4: 
                    os.system('cls' if os.name == 'nt' else 'clear')
                    print("***************************************************")
                    project_streaming.generar_grafo()
+                   project_streaming.grafico_grafo()
                    print("***************************************************")
                    input('Presione una tecla para continuar ... ')
                case 5:
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
+                #    print("***************************************************")
                    project_streaming.mostrar_grafoMA()
-                   print("***************************************************")
+                #    print("***************************************************")
                    input('Presione una tecla para continuar ... ')
                case 6:
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
+                   print("****************************************************")
+                   print('------- Estas son las peliculas a recomendar -------')
+
                    project_streaming.generar_recomendaciones()
                    print("***************************************************")
                    input('Presione una tecla para continuar ... ')
                case 7:
                    os.system('cls' if os.name == 'nt' else 'clear')
-                   print("***************************************************")
-                   path = project_streaming.dfs(2)
-                   print(path)
-                   project_streaming.draw_dfs(True, path)
+                   # %%
+                   nodo_grafo = input('Ingrese un nodo a buscar para el sub_grafo: ')
+                   project_streaming.mostrar_subGrafo(int(nodo_grafo))
+
+                   input('Presione una tecla para continuar ...')
+                #    path = project_streaming.dfs(1)
+                #    print(path)
+                #    project_streaming.draw_dfs(True, path)
+                   # En lugar de display(graph), usas esto en tu código:
+                   # %%
                    print('llegamos al final')
                    print("***************************************************")
                    break
@@ -313,72 +483,3 @@ def menu():
 
 
 menu()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# PELICULAS_A_RECOMENDAR = 5
-
-# print("#########################################")
-
-
-
-# def recomendar_peliculas(usuario):
-
-#     peliculas_usuario = [ pelicula['titulo']  for pelicula in usuario.get_peliculasVistas()]
-
-#     peliculas_recomendadas = []
-#     contador = 0
-#     for pelicula in datos["titulo"]:
-#         if contador == PELICULAS_A_RECOMENDAR:
-#             break 
-#         if pelicula not in peliculas_usuario:
-#               contador += 1
-#               pelicula_agregada = datos[datos["titulo"] == pelicula].to_dict(orient='records')[0]
-
-#               print('\naqui va una pelicula agregada')
-#               print( pelicula_agregada)
-#               peliculas_recomendadas.append(pelicula_agregada)
-
-
-#     print('\n---estas son las peliculas a recomendar----')
-#     print(peliculas_recomendadas)
-
-#     usuario.asignar_peliculasRecomendadas(peliculas_recomendadas)
-
-# # recomendar_peliculas(usuarios_registrados[1])
-
-# print("#########################################")
-
-
-# for indice, usuario in enumerate(usuarios_registrados):
-#     recomendar_peliculas(usuarios_registrados[indice+1])
-
-
-# x = [1, 2, 3, 4]
-# y = [10, 20, 15, 30]
-
-# plt.plot(x, y)
-# plt.show()
-
-# G = nx.Graph()
-
-# G.add_node("U1")
-# G.add_node("U2")
-
-# G.add_edge("U1", "U2")
-
-# nx.draw(G)
-# plt.show()
-

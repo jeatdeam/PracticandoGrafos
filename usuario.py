@@ -18,6 +18,9 @@ class Usuario:
         return f"Nombre: {self.nombre}, Apellido: {self.apellido}, Correo: {self.correo}"
 
 
+    def get_nombre(self):
+        return self.nombre
+
     def asignar_pelicula_vistas(self, peliculas):
         self.peliculas_vistas.append(peliculas)
 
@@ -61,7 +64,7 @@ class Usuario:
 
         if not generos_obtenidos:
             # self.genero_preferido = "Sin preferido"
-            print(f'{self.nombre} no vio ninguna película todavía. Por ende, no tiene genero favorito')
+            print(f'no vio ninguna película todavía')
             return
 
         contador = Counter(generos_obtenidos)
