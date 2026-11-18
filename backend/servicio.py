@@ -8,9 +8,10 @@ from contextlib import contextmanager
 import pandas as pd
 from faker import Faker
 
-# Reutilizamos la clase Usuario del proyecto original (carpeta raíz)
-RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(RAIZ)
+# El backend es autocontenido (usuario.py y el CSV viven en backend/)
+# para que Vercel los incluya al desplegar el servicio.
+CARPETA = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
@@ -19,9 +20,11 @@ CANTIDAD_PELICULAS_VISTAS = 100
 PELICULAS_A_RECOMENDAR = 5
 SIN_GENERO = "sin peliculas vistas"
 
-RUTA_BD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "streaming.db")
+# En Vercel solo /tmp es escribible (y no es persistente entre instancias)
+CARPETA_BD = "/tmp" if os.environ.get("VERCEL") else CARPETA
+RUTA_BD = os.path.join(CARPETA_BD, "streaming.db")
 
-datos = pd.read_csv(os.path.join(RAIZ, "peliculas_streaming_1000.csv"))
+datos = pd.read_csv(os.path.join(CARPETA, "peliculas_streaming_1000.csv"))
 peliculas_por_id = {p["movie_id"]: p for p in datos.to_dict(orient="records")}
 fake = Faker("es_ES")
 
