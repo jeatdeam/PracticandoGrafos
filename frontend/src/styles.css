@@ -127,9 +127,12 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
     radial-gradient(ellipse at 75% 20%, color-mix(in srgb, var(--hero-color) 55%, transparent), transparent 60%),
     linear-gradient(120deg, #000 10%, color-mix(in srgb, var(--hero-color) 30%, #000) 100%);
 }
-/* Sub-grafo del usuario como fondo de la portada */
-.hero-grafo { position: absolute; inset: 0; }
-.hero-grafo::after {
+/* Sub-grafo 3D: lienzo a todo el ancho del hero y POR ENCIMA del texto, para
+   que al girar nunca se corte en un borde. Los botones y la tarjeta quedan
+   aún más arriba para poder hacer clic. */
+.hero-grafo { position: absolute; inset: 0; z-index: 2; }
+/* Oscurecido bajo el texto (antes estaba dentro de .hero-grafo) */
+.hero::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -139,29 +142,20 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
     linear-gradient(0deg, var(--fondo) 0%, transparent 30%);
 }
 .grafo-canvas { position: absolute; inset: 0; }
+.grafo-3d { opacity: 0; transition: opacity 0.5s ease-out; }
+.grafo-3d.listo { opacity: 1; }
 .hero-izq {
   position: relative;
-  z-index: 1;
   width: min(600px, 100%);
   display: flex;
   flex-direction: column;
   gap: 28px;
 }
-.hero-grafo-etiqueta {
-  position: absolute;
-  right: 4%;
-  bottom: 34px;
-  z-index: 1;
-  font-size: 12px;
-  color: var(--gris);
-  pointer-events: none;
-  text-align: right;
-}
 .hero-contenido { max-width: 600px; }
 .hero-etiqueta { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; color: var(--gris); margin-bottom: 14px; }
 .hero h1 { font-size: clamp(34px, 5.5vw, 72px); line-height: 1.02; font-weight: 800; color: #fff; margin-bottom: 18px; text-wrap: balance; }
 .hero-texto { font-size: 17px; line-height: 1.5; color: #ddd; margin-bottom: 26px; }
-.hero-botones { display: flex; gap: 12px; flex-wrap: wrap; }
+.hero-botones { display: flex; gap: 12px; flex-wrap: wrap; position: relative; z-index: 3; }
 .boton-blanco, .boton-gris { padding: 10px 26px; border-radius: 4px; font-weight: 700; font-size: 16px; }
 .boton-blanco { background: #fff; color: #000; }
 .boton-blanco:hover { background: rgba(255,255,255,0.8); }
@@ -169,6 +163,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .boton-gris:hover { background: rgba(109,109,110,0.45); }
 
 .perfil-tarjeta {
+  position: relative;
+  z-index: 3;
   background: rgba(20,20,20,0.7);
   backdrop-filter: blur(8px);
   border: 1px solid var(--borde);
@@ -456,14 +452,24 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 @keyframes subir { from { opacity: 0; transform: translate(-50%, 10px); } }
 
 /* ---------------- Responsive ---------------- */
+/* 768–1023 px: se deja un hueco sobre el texto donde el grafo va centrado */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero { padding-top: calc(70px + clamp(260px, 48vh, 460px)); }
+  .hero::before { background: linear-gradient(0deg, var(--fondo) 0%, rgba(0,0,0,0.55) 45%, transparent 70%); }
+}
 @media (max-width: 860px) {
   .hero { min-height: auto; padding-bottom: 80px; }
-  .hero-grafo { opacity: 0.35; pointer-events: none; }
-  .hero-grafo::after { background: linear-gradient(0deg, var(--fondo) 0%, rgba(0,0,0,0.4) 60%); }
-  .hero-grafo-etiqueta { left: 4%; text-align: left; }
-  .perfil-tarjeta-cabecera { flex-wrap: wrap; }
+  /* En celular el grafo no recibe toques, para que se pueda hacer scroll */
+  .hero-grafo { pointer-events: none; }
+    .perfil-tarjeta-cabecera { flex-wrap: wrap; }
   .barras { grid-template-columns: 1fr; }
   .setup-caja { padding: 28px 20px; }
+}
+
+/* < 768 px (celular): como antes, el grafo va de fondo detrás del texto */
+@media (max-width: 767px) {
+  .hero-grafo { opacity: 0.35; z-index: 0; }
+  .hero::before { background: linear-gradient(0deg, var(--fondo) 0%, rgba(0,0,0,0.4) 60%); }
 }
 
 @media (max-width: 500px) {
@@ -479,3 +485,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   .perfiles .avatar { width: 96px !important; height: 96px !important; font-size: 40px !important; }
   .fila-flecha { display: none; }
 }
+
+/* ---------------- Fotos de portada ---------------- */
+.tarjeta, .modal-portada { overflow: hidden; isolation: isolate; }
+.portada-imagen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.portada-velo { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.tarjeta-titulo, .tarjeta-info, .modal-portada h2 { position: relative; }
+
+/* ---------------- Fotos de perfil ---------------- */
+.avatar { position: relative; overflow: hidden; }
+.avatar-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

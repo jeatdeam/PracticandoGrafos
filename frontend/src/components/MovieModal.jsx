@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { colorGenero } from '../colores'
+import { imagenPelicula, ocultarSiFalla } from '../imagenes'
 
 export default function MovieModal({ pelicula, vista, onCerrar, onVer }) {
   const [cargando, setCargando] = useState(false)
@@ -25,6 +26,13 @@ export default function MovieModal({ pelicula, vista, onCerrar, onVer }) {
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-portada" style={{ background: `linear-gradient(160deg, ${colorGenero(pelicula.genero)}, #181818 90%)` }}>
+          <img
+            className="portada-imagen"
+            src={imagenPelicula(pelicula.id, 1120, 490)}
+            alt=""
+            onError={ocultarSiFalla}
+          />
+          <span className="portada-velo" style={{ background: 'linear-gradient(180deg, rgba(24,24,24,0) 30%, rgba(24,24,24,0.95) 100%)' }} />
           <button className="modal-cerrar" onClick={onCerrar} aria-label="Cerrar">✕</button>
           <h2>{pelicula.titulo}</h2>
           {vista ? (

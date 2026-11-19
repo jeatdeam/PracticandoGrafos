@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import { colorGenero } from '../colores'
 import Avatar from './Avatar'
-import GrafoCanvas from './GrafoCanvas'
+import Grafo3D from './Grafo3D'
 import MovieRow from './MovieRow'
 import MovieModal from './MovieModal'
 
@@ -10,7 +10,15 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
   const [detalle, setDetalle] = useState(null)
   const [subGrafo, setSubGrafo] = useState({ nodes: [], links: [] })
   const [seleccion, setSeleccion] = useState(null)
-  const [angosto, setAngosto] = useState(window.innerWidth < 860)
+  const [ancho, setAncho] = useState(window.innerWidth)
+  const angosto = ancho < 860
+  const compacto = ancho < 1024
+  const movil = ancho < 768
+  const mediano = ancho >= 1024 && ancho < 1260
+  const hero = useRef(null)
+  const heroIzq = useRef(null)
+  // Fracción vertical libre arriba (navbar) y abajo (texto del perfil)
+  const [vertical, setVertical] = useState({ arriba: 0, abajo: 0 })
 
   useEffect(() => {
     api.usuario(perfilId).then(setDetalle)
@@ -19,10 +27,27 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
   }, [perfilId])
 
   useEffect(() => {
-    const alCambiar = () => setAngosto(window.innerWidth < 860)
+    const alCambiar = () => setAncho(window.innerWidth)
     window.addEventListener('resize', alCambiar)
     return () => window.removeEventListener('resize', alCambiar)
   }, [])
+
+  // Entre 768 y 1023 px el grafo va centrado en el hueco que queda
+  // entre la barra de navegación y el texto del perfil
+  useEffect(() => {
+    if (!hero.current || !heroIzq.current) return
+    const medir = () => {
+      const alto = hero.current.offsetHeight
+      const libreArriba = 70 / alto
+      const libreAbajo = (alto - heroIzq.current.offsetTop + 10) / alto
+      setVertical({ arriba: libreArriba, abajo: Math.min(libreAbajo, 0.75) })
+    }
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(hero.current)
+    observador.observe(heroIzq.current)
+    return () => observador.disconnect()
+  }, [detalle !== null])
 
   const porGenero = useMemo(() => {
     if (!detalle) return []
@@ -47,19 +72,29 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
 
   return (
     <main>
-      <header className="hero" style={{ '--hero-color': colorGenero(detalle.genero_favorito) }}>
+      <header className="hero" ref={hero} style={{ '--hero-color': colorGenero(detalle.genero_favorito) }}>
         <div className="hero-grafo">
-          <GrafoCanvas
+          <Grafo3D
             datos={subGrafo}
             destacadoId={perfilId}
             onNodeClick={(id) => id !== perfilId && onPerfil(id)}
-            areaIzq={angosto ? 0 : 0.45}
-            interactivo={false}
-            fondo="rgba(0,0,0,0)"
+            // Zona donde se encuadra el grafo:
+            // >= 1024 px: pegado al borde derecho, a la derecha del texto
+            // 768–1023 px: centrado a lo ancho, en el hueco sobre el texto
+            // <   768 px: centrado en todo el hero, de fondo detrás del texto
+            areaIzq={compacto ? 0 : 0.45}
+            areaDer={compacto ? 0 : 0.03}
+            areaArriba={compacto && !movil ? vertical.arriba : 0}
+            // 1024–1259 px: un poco más arriba (abajo sobraba espacio
+            // antes de los detalles del perfil)
+            areaAbajo={compacto && !movil ? vertical.abajo : mediano ? 0.18 : 0}
+            alinear={compacto ? 'centro' : 'derecha'}
+            // 768–1023 px: 25% más grande; 1024–1259 px: 20% más grande
+            escala={compacto && !movil ? 1.25 : mediano ? 1.2 : 1}
           />
         </div>
 
-        <div className="hero-izq">
+        <div className="hero-izq" ref={heroIzq}>
           <div className="hero-contenido">
             <p className="hero-etiqueta">Perfil de {detalle.nombre} {detalle.apellido}</p>
             <h1>{destacada ? destacada.titulo : 'Aún no has visto ninguna película'}</h1>
@@ -101,10 +136,6 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
           </aside>
         </div>
 
-        <p className="hero-grafo-etiqueta">
-          Sub-grafo de {detalle.nombre}: {detalle.conexiones.length} {detalle.conexiones.length === 1 ? 'usuario' : 'usuarios'} con {detalle.genero_favorito ?? 'sin películas vistas'}
-          {!angosto && ' · haz clic en un nodo para ir a su perfil'}
-        </p>
       </header>
 
       <div className="filas">

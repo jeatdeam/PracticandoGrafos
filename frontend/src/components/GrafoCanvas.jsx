@@ -9,11 +9,15 @@ const extremos = (l) => [l.source.id ?? l.source, l.target.id ?? l.target]
  * Dibuja un grafo de usuarios + géneros que ocupa todo su contenedor.
  * areaIzq: fracción del ancho (0 a 1) que se deja libre a la izquierda al encuadrar.
  * interactivo: permite zoom con la rueda y arrastrar el lienzo.
+ * flotar: los nodos se mecen suavemente sin detenerse nunca.
  */
-export default function GrafoCanvas({ datos, destacadoId, onNodeClick, areaIzq = 0, interactivo = true, fondo = '#0b0b0b' }) {
+export default function GrafoCanvas({ datos, destacadoId, onNodeClick, areaIzq = 0, interactivo = true, fondo = '#0b0b0b', flotar = false }) {
   const contenedor = useRef(null)
   const grafo = useRef(null)
   const ajustado = useRef(false)
+  const ticks = useRef(0)
+  // Quien pidió reducir el movimiento en su sistema ve el grafo quieto
+  const moverse = flotar && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const [tamano, setTamano] = useState(null)
   const [hover, setHover] = useState(null)
 
@@ -31,7 +35,35 @@ export default function GrafoCanvas({ datos, destacadoId, onNodeClick, areaIzq =
     grafo.current?.d3Force('link').distance((l) => (l.tipo === 'genero' ? 50 : 90))
     grafo.current?.d3ReheatSimulation()
     ajustado.current = false
+    ticks.current = 0
   }, [datos, montado])
+
+  // Fuerza de "flotación": empuja cada nodo con una onda senoidal propia.
+  // No depende de alpha, así que sigue actuando cuando el resto de fuerzas
+  // ya se calmaron. Como la onda tiene media cero, los nodos no se alejan.
+  useEffect(() => {
+    if (!montado || !grafo.current) return
+    if (!moverse) {
+      grafo.current.d3Force('flotar', null)
+      return
+    }
+    let nodos = []
+    const fuerza = () => {
+      const t = performance.now() / 1000
+      for (const n of nodos) {
+        n.vx += Math.cos(t * n.velFlotar + n.faseFlotar) * 0.05
+        n.vy += Math.sin(t * n.velFlotar * 0.8 + n.faseFlotar) * 0.05
+      }
+    }
+    fuerza.initialize = (lista) => {
+      nodos = lista
+      nodos.forEach((n) => {
+        n.faseFlotar ??= Math.random() * Math.PI * 2
+        n.velFlotar ??= 0.5 + Math.random() * 0.5
+      })
+    }
+    grafo.current.d3Force('flotar', fuerza)
+  }, [montado, moverse, datos])
 
   // Centra el grafo en la zona libre (a la derecha de areaIzq)
   const encuadrar = (ms) => {
@@ -116,7 +148,17 @@ export default function GrafoCanvas({ datos, destacadoId, onNodeClick, areaIzq =
           enableZoomInteraction={interactivo}
           enablePanInteraction={interactivo}
           warmupTicks={40}
-          cooldownTicks={120}
+          // Si flota, la simulación nunca se detiene; encuadramos tras 120 ticks
+          cooldownTicks={moverse ? Infinity : 120}
+          d3AlphaMin={moverse ? 0 : 0.001}
+          onEngineTick={() => {
+            if (!moverse || ajustado.current) return
+            ticks.current += 1
+            if (ticks.current >= 120) {
+              encuadrar(500)
+              ajustado.current = true
+            }
+          }}
           onEngineStop={() => {
             if (!ajustado.current) encuadrar(500)
             ajustado.current = true
