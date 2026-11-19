@@ -55,6 +55,9 @@ Un único grafo no dirigido (`backend/grafo.py`, listas de adyacencia):
 - Aristas `vista` (usuario–película) y `usuario` (usuario–usuario) cuando comparten género favorito válido
   o tienen películas vistas en común; cada arista guarda `motivos` y `comunes`.
 - `/api/grafo` muestra la vista de usuarios de ese mismo grafo (los nodos de género son solo agrupadores visuales).
+- `backend/recorridos.py`: BFS (cola FIFO, niveles, padres; candidatos por el camino
+  usuario → película → usuario → película y camino mínimo entre usuarios) y DFS iterativo
+  (pila; componentes conexas del grafo completo y de la vista de usuarios).
 
 ## Pruebas
 
