@@ -86,3 +86,11 @@ def sub_grafo(id_usuario: int):
 @app.get("/api/matriz")
 def matriz():
     return project_streaming.matriz_adyacencia()
+
+
+@app.get("/api/recorrido/{tipo}/{id_usuario}")
+def recorrido(tipo: str, id_usuario: int, todo: bool = False):
+    if tipo not in ("bfs", "dfs"):
+        raise HTTPException(status_code=400, detail="El recorrido debe ser bfs o dfs")
+    validar_usuario(id_usuario)
+    return project_streaming.recorrido(tipo, id_usuario, todo)
