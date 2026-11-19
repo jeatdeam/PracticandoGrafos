@@ -287,9 +287,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .segmentado { display: flex; background: #262626; border-radius: 6px; padding: 3px; }
 .segmentado button { padding: 8px 16px; border-radius: 4px; font-size: 14px; color: #bbb; }
 .segmentado button.activo { background: var(--rojo); color: #fff; font-weight: 700; }
-.grafo-lienzo { position: relative; flex: 1; min-height: 360px; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+.grafo-lienzo { position: relative; flex: 1; min-height: 360px; background: #0b0b0b; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
 .grafo-stats, .leyenda {
   position: absolute;
+  z-index: 1;
+  pointer-events: none;
   left: 14px;
   display: flex;
   gap: 14px;

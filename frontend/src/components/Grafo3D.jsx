@@ -15,6 +15,7 @@ import { colorAvatar, colorGenero } from '../colores'
  * areaArriba / areaAbajo: fracción del alto (0 a 1) libre arriba/abajo.
  * alinear: 'centro' (en la zona libre) o 'derecha' (pegado al borde derecho).
  * escala: agranda el grafo (1.25 = 25% más grande).
+ * interactivo: permite zoom con la rueda y mover la vista (pestaña de grafos).
  *   El lienzo siempre ocupa todo el contenedor (así nada se corta al girar);
  *   el grafo se desplaza hacia la zona libre moviendo la vista de la cámara.
  */
@@ -98,7 +99,7 @@ function texto(contenido, alto, color, negrita) {
 
 const sinEtiqueta = () => ''
 
-export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, areaDer = 0, areaArriba = 0, areaAbajo = 0, alinear = 'centro', escala = 1 }) {
+export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, areaDer = 0, areaArriba = 0, areaAbajo = 0, alinear = 'centro', escala = 1, interactivo = false }) {
   const contenedor = useRef(null)
   const grafo = useRef(null)
   const ajustado = useRef(false)
@@ -120,25 +121,34 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
   const montado = tamano !== null && tamano.width > 0
 
   // El género queda fijo en el centro; los usuarios giran a su alrededor
+  // Con un solo género (sub-grafo) éste queda fijo en el centro y los
+  // usuarios giran a su alrededor; con varios (grafo completo) todos se mueven
   const datosGrafo = useMemo(() => {
-    datos.nodes.forEach((n) => {
-      if (n.tipo === 'genero') n.fx = n.fy = n.fz = 0
-    })
+    const generos = datos.nodes.filter((n) => n.tipo === 'genero')
+    if (generos.length === 1) generos[0].fx = generos[0].fy = generos[0].fz = 0
     return datos
   }, [datos])
 
-  const colorDelGenero = colorGenero(datos.nodes.find((n) => n.tipo === 'genero')?.genero)
+  // Color de cada género por id de nodo, para pintar sus aristas
+  const colorPorNodo = useMemo(
+    () => new Map(datos.nodes.filter((n) => n.tipo === 'genero').map((n) => [n.id, colorGenero(n.genero)])),
+    [datos],
+  )
+
+  // Con muchos usuarios cada nube lleva menos bolitas para que no vaya lento
+  const totalUsuarios = datos.nodes.filter((n) => n.tipo === 'usuario').length
+  const factorBolitas = Math.min(1, 40 / Math.max(1, totalUsuarios))
 
   // Cámara: gira sola; se puede rotar arrastrando, pero sin zoom con la
   // rueda para no robarle el scroll a la página.
   useEffect(() => {
     const controles = grafo.current?.controls()
     if (!controles) return
-    controles.enableZoom = false
-    controles.enablePan = false
+    controles.enableZoom = interactivo
+    controles.enablePan = interactivo
     controles.autoRotate = moverse
     controles.autoRotateSpeed = 0.8
-  }, [montado, moverse])
+  }, [montado, moverse, interactivo])
 
   // Fuerzas: distancias que dejan espacio entre nubes y una "flotación"
   // senoidal que no depende de alpha (no se apaga nunca).
@@ -241,7 +251,8 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
     const color = esGenero ? colorGenero(n.genero) : esDestacado ? '#ffffff' : colorAvatar(Number(n.id))
     const grupo = new THREE.Group()
 
-    const puntos = nube(esGenero ? 650 : esDestacado ? 260 : 170, radio, color, esGenero ? 1.3 : 1)
+    const cantidad = esGenero ? 650 : Math.round((esDestacado ? 260 : 170) * Math.max(factorBolitas, esDestacado ? 0.5 : 0.25))
+    const puntos = nube(cantidad, radio, color, esGenero ? 1.3 : 1)
     grupo.add(puntos)
     n.__nube = puntos
 
@@ -260,9 +271,13 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
       grupo.add(nombre)
     }
     return grupo
-  }, [destacadoId])
+  }, [destacadoId, factorBolitas])
 
-  const colorArista = useCallback((l) => (l.tipo === 'genero' ? colorDelGenero : '#ffffff'), [colorDelGenero])
+  const colorArista = useCallback((l) => {
+    if (l.tipo !== 'genero') return '#ffffff'
+    const extremo = (x) => (typeof x === 'object' ? x.id : x)
+    return colorPorNodo.get(extremo(l.target)) ?? colorPorNodo.get(extremo(l.source)) ?? '#ffffff'
+  }, [colorPorNodo])
 
   return (
     <div className={`grafo-canvas grafo-3d ${listo ? 'listo' : ''}`} ref={contenedor}>

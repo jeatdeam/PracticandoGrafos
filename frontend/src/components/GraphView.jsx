@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { COLOR_GENERO } from '../colores'
-import GrafoCanvas from './GrafoCanvas'
+import Grafo3D from './Grafo3D'
 
 export default function GraphView({ perfilId, usuarios }) {
   const [modo, setModo] = useState('completo')
@@ -27,7 +27,7 @@ export default function GraphView({ perfilId, usuarios }) {
         <div>
           <h1>Grafo de usuarios</h1>
           <p className="gris">
-            Dos usuarios están conectados si comparten el mismo género favorito. Pasa el cursor sobre un nodo y haz clic en un usuario para ver su sub-grafo.
+            Dos usuarios están conectados si comparten el mismo género favorito. Arrastra para girar, usa la rueda para acercar y haz clic en un usuario para ver su sub-grafo.
           </p>
         </div>
         <div className="grafo-controles">
@@ -48,10 +48,11 @@ export default function GraphView({ perfilId, usuarios }) {
       </div>
 
       <div className="grafo-lienzo">
-        <GrafoCanvas
+        <Grafo3D
           datos={datos}
           destacadoId={modo === 'sub' ? subId : perfilId}
           onNodeClick={verSubGrafo}
+          interactivo
         />
         <div className="grafo-stats">
           <span><b>{totalUsuarios}</b> usuarios</span>
