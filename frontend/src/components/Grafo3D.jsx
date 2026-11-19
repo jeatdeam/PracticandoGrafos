@@ -209,6 +209,20 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
     )
   }
 
+  // Bucle propio para mover las bolitas dentro de cada nube, independiente
+  // del motor de fuerzas (así no se congelan si este se detiene)
+  useEffect(() => {
+    if (!moverse) return
+    let cuadro
+    const animar = () => {
+      const t = performance.now() / 1000
+      datosGrafo.nodes.forEach((n) => n.__nube && animarNube(n.__nube, t))
+      cuadro = requestAnimationFrame(animar)
+    }
+    cuadro = requestAnimationFrame(animar)
+    return () => cancelAnimationFrame(cuadro)
+  }, [datosGrafo, moverse])
+
   const mostrar = () => {
     encuadrar(0)
     ajustado.current = true
@@ -269,13 +283,10 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
           onNodeClick={(n) => n.tipo === 'usuario' && onNodeClick?.(Number(n.id))}
           warmupTicks={60}
           cooldownTicks={moverse ? Infinity : 120}
+          // Por defecto la librería detiene el motor a los 15 s; si flota, nunca
+          cooldownTime={moverse ? Infinity : 15000}
           d3AlphaMin={moverse ? 0 : 0.001}
           onEngineTick={() => {
-            if (moverse) {
-              // Las bolitas de cada nube se mueven dentro de ella
-              const t = performance.now() / 1000
-              datosGrafo.nodes.forEach((n) => n.__nube && animarNube(n.__nube, t))
-            }
             // Tras ~80 cuadros la estructura ya tomó su tamaño: se encuadra
             // al instante (sin animación) y recién entonces se muestra
             if (ajustado.current) return
