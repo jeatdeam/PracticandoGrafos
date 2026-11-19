@@ -13,6 +13,7 @@ from faker import Faker
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
+from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
@@ -83,7 +84,8 @@ class Project_Streaming:
 
     def __init__(self):
         self.usuarios_registrados = {}
-        self.grafo = {}
+        self.grafo = {}            # vista de usuarios: id -> [ids conectados]
+        self.grafo_completo = None  # grafo único (usuarios + películas), ver grafo.py
         self.recomendaciones = {}
         crear_tablas()
 
@@ -179,14 +181,29 @@ class Project_Streaming:
         }
 
     def generar_grafo(self):
-        # Conectamos usuarios que comparten el mismo género favorito
-        self.grafo = {}
-        for id_1, usuario_1 in self.usuarios_registrados.items():
-            self.grafo[id_1] = [
-                id_2
-                for id_2, usuario_2 in self.usuarios_registrados.items()
-                if id_1 != id_2 and usuario_1.get_generoFav() == usuario_2.get_generoFav()
-            ]
+        """Construye el grafo único (usuarios + 1500 películas). Dos usuarios se
+        conectan si comparten género favorito válido o películas vistas."""
+        usuarios = {
+            id_usuario: {
+                "nombre": u.nombre,
+                "genero_favorito": u.get_generoFav(),
+                "vistas": [p["movie_id"] for p in u.get_peliculasVistas()],
+            }
+            for id_usuario, u in self.usuarios_registrados.items()
+        }
+        self.grafo_completo = construir_grafo(peliculas_por_id.values(), usuarios)
+        # Vista filtrada del mismo grafo: solo aristas usuario-usuario
+        self.grafo = {u: self.grafo_completo.usuarios_conectados(u) for u in self.usuarios_registrados}
+
+    def conexion(self, id_1, id_2):
+        """Motivos y películas comunes de la arista usuario-usuario."""
+        return self.grafo_completo.arista(nodo_usuario(id_1), nodo_usuario(id_2))
+
+    def resumen(self):
+        """Conteo verificable de vértices y aristas del grafo construido."""
+        if self.grafo_completo is None:  # base vacía: aún no se generó nada
+            self.generar_grafo()
+        return self.grafo_completo.conteo()
 
     def generar_recomendaciones(self):
         self.recomendaciones = {}
@@ -240,12 +257,20 @@ class Project_Streaming:
             "peliculas_vistas": [pelicula_a_json(p) for p in reversed(usuario.get_peliculasVistas())],
             "recomendadas": [pelicula_a_json(p) for p in self.recomendaciones[id_usuario]],
             "generos": dict(sorted(conteo.items(), key=lambda x: -x[1])),
-            "conexiones": [self.usuario_a_json(v) for v in self.grafo[id_usuario]],
+            "conexiones": [
+                {
+                    **self.usuario_a_json(v),
+                    "motivos": self.conexion(id_usuario, v)["motivos"],
+                    "peliculas_comunes": len(self.conexion(id_usuario, v)["comunes"]),
+                }
+                for v in self.grafo[id_usuario]
+            ],
         }
 
     def grafo_json(self, nodos_usuario=None):
-        """Grafo usuarios + géneros (igual que grafico_grafo). Si se pasa una lista
-        de nodos, devuelve solo ese sub-grafo (igual que mostrar_subGrafo)."""
+        """Vista de usuarios del grafo único para el frontend. Los nodos "g:<género>"
+        son agrupadores visuales, no vértices del grafo. Si se pasa una lista de
+        nodos, devuelve solo ese sub-grafo."""
         ids = list(self.usuarios_registrados) if nodos_usuario is None else nodos_usuario
         nodos, aristas, agregadas, generos = [], [], set(), set()
 
@@ -258,7 +283,11 @@ class Project_Streaming:
 
             for v in self.grafo[u]:
                 if v in ids and (u, v) not in agregadas:
-                    aristas.append({"source": str(u), "target": str(v), "tipo": "usuario"})
+                    arista = self.conexion(u, v)
+                    aristas.append({
+                        "source": str(u), "target": str(v), "tipo": ARISTA_USUARIO,
+                        "motivos": arista["motivos"], "comunes": len(arista["comunes"]),
+                    })
                     agregadas.add((u, v))
                     agregadas.add((v, u))
 

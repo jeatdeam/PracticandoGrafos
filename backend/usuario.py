@@ -63,7 +63,8 @@ class Usuario:
         self.generos_vistos = generos_obtenidos
 
         if not generos_obtenidos:
-            # self.genero_preferido = "Sin preferido"
+            # Sin vistas no hay género favorito: None nunca genera conexiones
+            self.genero_preferido = None
             print(f'no vio ninguna película todavía')
             return
 

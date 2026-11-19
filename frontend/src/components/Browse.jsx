@@ -63,8 +63,8 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
   const ver = async (pelicula) => {
     const resultado = await api.ver(perfilId, pelicula.id)
     setDetalle(resultado.usuario)
-    // Si cambió su género favorito, cambian sus conexiones
-    if (resultado.nueva && resultado.genero_anterior !== resultado.usuario.genero_favorito) {
+    // Una película nueva puede cambiar sus conexiones (género o películas en común)
+    if (resultado.nueva) {
       api.subGrafo(perfilId).then(setSubGrafo)
     }
     onVisto(resultado, pelicula)
