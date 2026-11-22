@@ -1,75 +1,92 @@
 """Recorridos BFS y DFS sobre el grafo único (grafo.py).
 
-Implementados explícitamente, como en clase:
-    BFS: cola FIFO, visitados, padres y distancia por niveles.   O(V + E)
-    DFS: pila explícita (iterativo), visitados y padres.         O(V + E)
+Siguen las implementaciones vistas en clase, adaptadas a nuestra lista de
+adyacencia (diccionario nodo -> vecinos) y a ids de nodo "U:<id>" / "P:<id>":
 
-Los filtros por tipo de nodo o de arista permiten recorrer una "vista" del
-mismo grafo (por ejemplo, solo usuarios conectados entre sí) sin construir
-un grafo aparte.
+    BFS (como bfs_am de BFS_MA.ipynb): lista `queue` usada como cola con
+        pop(0), `visited` y `path` (padres). Agrega `nivel` para saber a qué
+        distancia está cada nodo.
+    DFS (como dfs de DFS_LA.ipynb): función interna recursiva `_dfs`,
+        `visited` y `path`.
+
+Hay una sola implementación de cada uno; los usos se distinguen por el tipo
+de arista que se recorre:
+    - animación de /api/recorrido: BFS o DFS por aristas usuario-usuario
+    - recomendaciones: BFS por aristas "vista" hasta el nivel 3
+    - componentes conexas: DFS por aristas usuario-usuario
 """
-from collections import deque
-
-from grafo import ARISTA_USUARIO, ARISTA_VISTA, TIPO_PELICULA, TIPO_USUARIO, clave_arista, nodo_usuario
+from grafo import ARISTA_USUARIO, ARISTA_VISTA, TIPO_PELICULA, TIPO_USUARIO, nodo_usuario
 
 
-def _vecinos_filtrados(grafo, nodo, tipos_arista, tipos_nodo):
-    for v in grafo.adyacencia[nodo]:
-        if tipos_arista is not None and grafo.aristas[clave_arista(nodo, v)]["tipo"] not in tipos_arista:
-            continue
-        if tipos_nodo is not None and grafo.nodos[v]["tipo"] not in tipos_nodo:
-            continue
-        yield v
+def vecinos(grafo, u, tipo_arista=None):
+    """Vecinos de u (solo por aristas del tipo indicado), ordenados por id."""
+    return sorted(
+        grafo.vecinos(u, tipo_arista),
+        key=lambda v: (grafo.nodos[v]["tipo"], grafo.nodos[v]["id"]),
+    )
+
+
+def nuevos_visitados(grafo):
+    """Como `visited = [False]*n` del notebook, pero por nodo."""
+    return {nodo: False for nodo in grafo.adyacencia}
 
 
 # ----------------------------------- BFS -----------------------------------
 
-def bfs(grafo, origen, tipos_arista=None, tipos_nodo=None, max_nivel=None):
-    """Recorrido en anchura desde `origen`.
+def bfs(grafo, s, tipo_arista=None, max_nivel=None, visited=None, pasos=None, componente=1):
+    """Búsqueda en amplitud desde s.
 
-    Devuelve (distancia, padre, orden):
-        distancia[n]  nivel en el que se descubrió n (origen = 0)
-        padre[n]      nodo desde el que se descubrió n (origen -> None)
-        orden         nodos en el orden en que salieron de la cola
-    Con max_nivel no se expanden nodos de ese nivel en adelante.
+    Devuelve (path, nivel):
+        path[n]   nodo desde el que se descubrió n (s -> None)
+        nivel[n]  número de aristas desde s hasta n
+    max_nivel: no se expanden los nodos de ese nivel (se descubren, pero no
+        se sigue desde ellos).
+    visited: se puede pasar para continuar con otra componente.
+    pasos: si es una lista, se agrega un paso por cada nodo que sale de la
+        cola, con el estado de la cola en ese momento (para la animación).
+
+    Tiempo: O(V + E) visitas; cada pop(0) cuesta O(largo de la cola), así que
+    en el peor caso O(V^2 + E). Espacio: O(V).
     """
-    distancia = {origen: 0}
-    padre = {origen: None}
-    orden = []
-    cola = deque([origen])
+    if visited is None:
+        visited = nuevos_visitados(grafo)
+    path = {s: None}
+    nivel = {s: 0}
+    queue = [s]
+    visited[s] = True
 
-    while cola:
-        u = cola.popleft()
-        orden.append(u)
-        if max_nivel is not None and distancia[u] >= max_nivel:
-            continue
-        for v in _vecinos_filtrados(grafo, u, tipos_arista, tipos_nodo):
-            if v not in distancia:  # no visitado
-                distancia[v] = distancia[u] + 1
-                padre[v] = u
-                cola.append(v)
+    while queue:
+        u = queue.pop(0)
+        if max_nivel is None or nivel[u] < max_nivel:
+            for v in vecinos(grafo, u, tipo_arista):
+                if not visited[v]:
+                    visited[v] = True
+                    path[v] = u
+                    nivel[v] = nivel[u] + 1
+                    queue.append(v)
+        if pasos is not None:
+            pasos.append({"nodo": u, "padre": path[u], "componente": componente, "estructura": list(queue)})
 
-    return distancia, padre, orden
+    return path, nivel
 
 
-def reconstruir_camino(padre, destino):
-    """Camino origen -> destino siguiendo los padres; [] si no se alcanzó."""
-    if destino not in padre:
+def reconstruir_camino(path, destino):
+    """Camino desde el origen hasta destino siguiendo los padres; [] si no se alcanzó."""
+    if destino not in path:
         return []
     camino = []
     nodo = destino
     while nodo is not None:
         camino.append(nodo)
-        nodo = padre[nodo]
+        nodo = path[nodo]
     camino.reverse()
     return camino
 
 
 def camino_entre_usuarios(grafo, id_origen, id_destino):
-    """Camino mínimo en saltos entre dos usuarios usando solo aristas usuario-usuario."""
-    origen, destino = nodo_usuario(id_origen), nodo_usuario(id_destino)
-    _, padre, _ = bfs(grafo, origen, tipos_arista={ARISTA_USUARIO}, tipos_nodo={TIPO_USUARIO})
-    return reconstruir_camino(padre, destino)
+    """Camino mínimo en saltos entre dos usuarios (BFS por aristas usuario-usuario)."""
+    path, _ = bfs(grafo, nodo_usuario(id_origen), ARISTA_USUARIO)
+    return reconstruir_camino(path, nodo_usuario(id_destino))
 
 
 def candidatos_bfs(grafo, id_usuario):
@@ -79,27 +96,26 @@ def candidatos_bfs(grafo, id_usuario):
         nivel 1: películas que vio el usuario
         nivel 2: usuarios que vieron alguna de ellas
         nivel 3: películas de esos usuarios que el usuario no vio (candidatas)
-    No atraviesa géneros (no son nodos) ni aristas usuario-usuario.
+    No pasa por aristas usuario-usuario ni por géneros (no son nodos).
 
-    Cada candidata incluye cuántos usuarios del nivel 2 la vieron y el camino
-    BFS que la explica. Se ordenan por ese conteo (desc.) y luego por id.
+    Cada candidata incluye los usuarios del nivel 2 que la vieron y el camino
+    BFS que la explica. Se ordenan por cantidad de esos usuarios y luego por id.
     """
-    origen = nodo_usuario(id_usuario)
-    distancia, padre, _ = bfs(grafo, origen, tipos_arista={ARISTA_VISTA}, max_nivel=3)
+    path, nivel = bfs(grafo, nodo_usuario(id_usuario), ARISTA_VISTA, max_nivel=3)
 
     candidatas = []
-    for nodo, nivel in distancia.items():
-        if nivel != 3:
+    for nodo in path:
+        if nivel[nodo] != 3:
             continue
         usuarios = sorted(
             grafo.nodos[v]["id"]
             for v in grafo.adyacencia[nodo]
-            if distancia.get(v) == 2
+            if nivel.get(v) == 2
         )
         candidatas.append({
             "movie_id": grafo.nodos[nodo]["id"],
             "usuarios": usuarios,
-            "camino": reconstruir_camino(padre, nodo),
+            "camino": reconstruir_camino(path, nodo),
         })
 
     candidatas.sort(key=lambda c: (-len(c["usuarios"]), c["movie_id"]))
@@ -108,86 +124,120 @@ def candidatos_bfs(grafo, id_usuario):
 
 # ----------------------------------- DFS -----------------------------------
 
-def dfs(grafo, origen, tipos_arista=None, tipos_nodo=None, visitados=None):
-    """Recorrido en profundidad iterativo desde `origen`.
+def dfs(grafo, s, tipo_arista=None, visited=None, pasos=None, componente=1):
+    """Búsqueda en profundidad recursiva desde s (como en DFS_LA.ipynb).
 
-    Devuelve (orden, padre). Los vecinos se apilan en orden inverso para
-    visitar en el mismo orden que la versión recursiva.
+    Devuelve path: path[n] es el nodo desde el que se visitó n (s -> None).
+    Las claves de path quedan en el orden de visita.
+    pasos: si es una lista, se agrega un paso por cada nodo visitado, con la
+        pila de llamadas recursivas activas en ese momento (para la animación;
+        no cambia el algoritmo).
+
+    Se usa sobre la vista de usuarios: la profundidad de la recursión es como
+    máximo la cantidad de usuarios (<= 300), dentro del límite de Python.
+    Tiempo: O(V + E). Espacio: O(V) por la pila de recursión.
     """
-    if visitados is None:
-        visitados = set()
-    orden = []
-    padre = {}
-    pila = [(origen, None)]  # (nodo, desde qué nodo se apiló)
+    if visited is None:
+        visited = nuevos_visitados(grafo)
+    path = {s: None}
+    llamadas = []  # nodos cuyas llamadas a _dfs siguen abiertas
 
-    while pila:
-        u, desde = pila.pop()
-        if u in visitados:
-            continue
-        visitados.add(u)
-        padre[u] = desde  # el padre es quien lo visitó realmente
-        orden.append(u)
-        vecinos = list(_vecinos_filtrados(grafo, u, tipos_arista, tipos_nodo))
-        for v in reversed(vecinos):
-            if v not in visitados:
-                pila.append((v, u))
+    def _dfs(u):
+        visited[u] = True
+        llamadas.append(u)
+        if pasos is not None:
+            pasos.append({"nodo": u, "padre": path[u], "componente": componente, "estructura": list(llamadas)})
+        for v in vecinos(grafo, u, tipo_arista):
+            if not visited[v]:
+                path[v] = u
+                _dfs(v)
+        llamadas.pop()
 
-    return orden, padre
+    _dfs(s)
+    return path
 
 
-def componentes_conexas(grafo, tipos_arista=None, tipos_nodo=None):
-    """Componentes conexas con DFS sobre la vista indicada del grafo.
-
-    Devuelve una lista de componentes (cada una, lista ordenada de nodos),
-    de mayor a menor tamaño. Son componentes conexas: no implican por sí
-    mismas gustos similares.
-    """
-    visitados = set()
-    componentes = []
-    for nodo in grafo.adyacencia:
-        if tipos_nodo is not None and grafo.nodos[nodo]["tipo"] not in tipos_nodo:
-            continue
-        if nodo in visitados:
-            continue
-        orden, _ = dfs(grafo, nodo, tipos_arista, tipos_nodo, visitados)
-        componentes.append(sorted(orden))
-    componentes.sort(key=lambda c: (-len(c), c[0]))
-    return componentes
+def nodos_usuario(grafo):
+    """Nodos de usuario ordenados por id."""
+    return sorted(
+        (n for n, atributos in grafo.nodos.items() if atributos["tipo"] == TIPO_USUARIO),
+        key=lambda n: grafo.nodos[n]["id"],
+    )
 
 
 def componentes_usuarios(grafo):
-    """Componentes conexas de la vista de usuarios (aristas usuario-usuario).
+    """Componentes conexas de la vista de usuarios, con DFS por aristas usuario-usuario.
 
-    Devuelve {"componentes": [[ids]], "aislados": [ids sin conexiones]}.
+    Devuelve {"componentes": [[ids]], "aislados": [ids sin conexiones]}, con
+    las componentes de mayor a menor tamaño. Son componentes conexas: no
+    implican por sí mismas gustos similares.
     """
-    componentes = componentes_conexas(grafo, tipos_arista={ARISTA_USUARIO}, tipos_nodo={TIPO_USUARIO})
-    como_ids = [sorted(grafo.nodos[n]["id"] for n in c) for c in componentes]
+    visited = nuevos_visitados(grafo)
+    componentes = []
+    for s in nodos_usuario(grafo):
+        if not visited[s]:
+            path = dfs(grafo, s, ARISTA_USUARIO, visited)
+            componentes.append(sorted(grafo.nodos[n]["id"] for n in path))
+    componentes.sort(key=lambda c: (-len(c), c[0]))
     return {
-        "componentes": como_ids,
-        "aislados": sorted(c[0] for c in como_ids if len(c) == 1),
+        "componentes": componentes,
+        "aislados": sorted(c[0] for c in componentes if len(c) == 1),
     }
 
 
 def resumen_componentes(grafo):
-    """Cantidad de componentes del grafo completo y de la vista de usuarios.
-
-    En el grafo completo, cada película que nadie vio es una componente de
-    un solo nodo (los géneros no son nodos que las unan).
-    """
-    completas = componentes_conexas(grafo)
+    """Componentes de la vista de usuarios y películas que nadie vio."""
     usuarios = componentes_usuarios(grafo)
-    peliculas_aisladas = sum(
-        1 for c in completas if len(c) == 1 and grafo.nodos[c[0]]["tipo"] == TIPO_PELICULA
+    peliculas_sin_vistas = sum(
+        1 for n, atributos in grafo.nodos.items()
+        if atributos["tipo"] == TIPO_PELICULA and not grafo.adyacencia[n]
     )
     return {
-        "grafo_completo": {
-            "componentes": len(completas),
-            "mayor": len(completas[0]) if completas else 0,
-            "peliculas_sin_vistas": peliculas_aisladas,
-        },
-        "usuarios": {
-            "componentes": len(usuarios["componentes"]),
-            "mayor": len(usuarios["componentes"][0]) if usuarios["componentes"] else 0,
-            "aislados": len(usuarios["aislados"]),
-        },
+        "componentes": len(usuarios["componentes"]),
+        "mayor": len(usuarios["componentes"][0]) if usuarios["componentes"] else 0,
+        "aislados": len(usuarios["aislados"]),
+        "peliculas_sin_vistas": peliculas_sin_vistas,
+    }
+
+
+# ------------------------- Animación de /api/recorrido -------------------------
+
+def recorrido_pasos(grafo, tipo, id_inicio, todo=False):
+    """Pasos de un BFS o DFS por la vista de usuarios, para animarlos.
+
+    Empieza en id_inicio y recorre su componente. Con todo=True, al terminar
+    sigue desde el siguiente usuario sin visitar hasta cubrir todas las
+    componentes. Cada paso: {nodo, padre, componente, estructura}, con ids de
+    usuario; estructura es la cola (BFS) o la pila de llamadas (DFS).
+    """
+    if tipo not in ("bfs", "dfs"):
+        raise ValueError("El recorrido debe ser bfs o dfs")
+    inicio = nodo_usuario(id_inicio)
+    orden_inicio = [inicio] + ([n for n in nodos_usuario(grafo) if n != inicio] if todo else [])
+
+    visited = nuevos_visitados(grafo)
+    pasos = []
+    componente = 0
+    for s in orden_inicio:
+        if visited[s]:
+            continue
+        componente += 1
+        if tipo == "bfs":
+            bfs(grafo, s, ARISTA_USUARIO, visited=visited, pasos=pasos, componente=componente)
+        else:
+            dfs(grafo, s, ARISTA_USUARIO, visited=visited, pasos=pasos, componente=componente)
+
+    def id_de(n):
+        return None if n is None else grafo.nodos[n]["id"]
+
+    pasos = [
+        {**p, "nodo": id_de(p["nodo"]), "padre": id_de(p["padre"]), "estructura": [id_de(n) for n in p["estructura"]]}
+        for p in pasos
+    ]
+    return {
+        "tipo": tipo,
+        "inicio": id_inicio,
+        "componentes": componente,
+        "miembros": sorted(p["nodo"] for p in pasos),
+        "pasos": pasos,
     }

@@ -14,6 +14,7 @@ CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
 from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
+from recorridos import recorrido_pasos  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
@@ -300,52 +301,9 @@ class Project_Streaming:
         return self.grafo_json([id_usuario] + self.grafo[id_usuario])
 
     def recorrido(self, tipo, inicio, todo=False):
-        """Recorre el grafo de usuarios con BFS (cola) o DFS (pila), igual que
-        bfs()/dfs() de main.py pero sobre las listas de adyacencia.
-        Empieza en `inicio` y recorre su componente (los usuarios de su mismo
-        género). Con todo=True, al acabar sigue con el siguiente usuario sin
-        visitar hasta recorrer el grafo completo.
-        Devuelve cada paso con el nodo visitado, su padre en el árbol y el
-        estado de la cola o pila en ese momento."""
-        nodos = sorted(self.grafo)
-        visitado = {u: False for u in nodos}
-        pasos = []
-        componente = 0
-        orden_inicio = [inicio] + ([u for u in nodos if u != inicio] if todo else [])
-
-        for s in orden_inicio:
-            if visitado[s]:
-                continue
-            componente += 1
-            if tipo == "bfs":
-                cola = [s]
-                visitado[s] = True
-                padre = {s: None}
-                while cola:
-                    u = cola.pop(0)
-                    for v in sorted(self.grafo[u]):
-                        if not visitado[v]:
-                            visitado[v] = True
-                            padre[v] = u
-                            cola.append(v)
-                    pasos.append({"nodo": u, "padre": padre[u], "componente": componente, "estructura": list(cola)})
-            else:
-                # DFS con pila explícita: equivale al _dfs recursivo de main.py
-                visitado[s] = True
-                pila = [s]
-                pasos.append({"nodo": s, "padre": None, "componente": componente, "estructura": list(pila)})
-                while pila:
-                    u = pila[-1]
-                    siguiente = next((v for v in sorted(self.grafo[u]) if not visitado[v]), None)
-                    if siguiente is None:
-                        pila.pop()
-                        continue
-                    visitado[siguiente] = True
-                    pila.append(siguiente)
-                    pasos.append({"nodo": siguiente, "padre": u, "componente": componente, "estructura": list(pila)})
-
-        genero = self.usuarios_registrados[inicio].genero_preferido or SIN_GENERO
-        return {"tipo": tipo, "inicio": inicio, "genero": genero, "componentes": componente, "pasos": pasos}
+        """Pasos de un BFS o DFS por la vista de usuarios del grafo único, para
+        la animación paso a paso. Usa los algoritmos de recorridos.py."""
+        return recorrido_pasos(self.grafo_completo, tipo, inicio, todo)
 
     def matriz_adyacencia(self):
         nodos = sorted(self.grafo)

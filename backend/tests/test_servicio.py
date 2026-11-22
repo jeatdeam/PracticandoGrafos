@@ -87,6 +87,14 @@ class TestApi(unittest.TestCase):
             for ruta in ("/api/usuarios", "/api/usuarios/0", "/api/grafo", "/api/grafo/0", "/api/matriz", "/api/resumen"):
                 self.assertEqual(cliente.get(ruta).status_code, 200, ruta)
             self.assertEqual(cliente.get("/api/resumen").json()["vertices"]["pelicula"], 1500)
+            self.assertEqual(cliente.get("/api/recorrido/xyz/0").status_code, 400)
+            for tipo in ("bfs", "dfs"):
+                respuesta = cliente.get(f"/api/recorrido/{tipo}/0?todo=true")
+                self.assertEqual(respuesta.status_code, 200)
+                datos = respuesta.json()
+                self.assertEqual(datos["tipo"], tipo)
+                self.assertEqual(datos["miembros"], [0, 1, 2, 3, 4])  # todo=true recorre a los 5 usuarios
+                self.assertEqual(len(datos["pasos"]), 5)
         finally:
             servicio.RUTA_BD = original
             temporal.cleanup()
