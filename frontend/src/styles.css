@@ -108,8 +108,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .navbar-izq .logo { margin-right: 14px; }
 /* El Lottie trae aire arriba y abajo: márgenes negativos para no agrandar la barra */
 .navbar-izq .logo-lottie { margin: clamp(-24px, -1.7vw, -6px) 0 clamp(-24px, -1.7vw, -6px) clamp(-18px, -1.3vw, -6px); flex-shrink: 1; min-width: 0;
-  /* 20 px más abajo dentro de la barra (sin cambiar el alto de la barra) */
-  position: relative; top: 20px; }
+  /* 10 px más abajo dentro de la barra (sin cambiar el alto de la barra) */
+  position: relative; top: 10px; }
 .navbar-izq button { color: #bbb; font-size: 14px; }
 .navbar-izq button.activo { color: #fff; font-weight: 700; }
 .navbar-izq button:hover { color: #fff; }
