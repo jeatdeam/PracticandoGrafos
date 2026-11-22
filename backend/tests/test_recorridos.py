@@ -36,6 +36,7 @@ from recorridos import (  # noqa: E402
     candidatos_bfs,
     componentes_usuarios,
     dfs,
+    recomendar_bfs,
     reconstruir_camino,
     recorrido_pasos,
     resumen_componentes,
@@ -159,6 +160,65 @@ class TestCandidatosBFS(unittest.TestCase):
             self.assertEqual(len(camino), 4)
             for a, b in zip(camino, camino[1:]):
                 self.assertEqual(g.arista(a, b)["tipo"], ARISTA_VISTA)
+
+
+class TestRecomendarBFS(unittest.TestCase):
+    """Usuario 0 (Drama) vio M1 M2 M3. Películas en común con él:
+    u1 = 2 (M1 M2), u2 = 1 (M3), u3 = 1 (M1), u4 = 1 (M3).
+    Candidatas: M4 (u1, u3) = 2 + 1 = 3; M5 (u2, u3) = 2; M6 (u3) = 1 Terror; M7 (u4) = 1 Drama.
+    """
+    CATALOGO = PELICULAS + [{"movie_id": "M7", "genero": "Drama"}]
+
+    def grafo(self):
+        return construir_k1(self.CATALOGO, {
+            0: usuario("Drama", ["M1", "M2", "M3"]),
+            1: usuario("Terror", ["M1", "M2", "M4"]),
+            2: usuario("Terror", ["M3", "M5"]),
+            3: usuario("Terror", ["M1", "M4", "M5", "M6"]),
+            4: usuario("Drama", ["M3", "M7"]),
+            5: usuario(None, []),
+        })
+
+    def test_puntaje_y_orden(self):
+        recs = recomendar_bfs(self.grafo(), 0, n=5)
+        self.assertEqual([(r["movie_id"], r["puntaje"]) for r in recs],
+                         [("M4", 3), ("M5", 2), ("M7", 1), ("M6", 1)])  # M7 antes que M6: mismo género que el usuario
+        self.assertTrue(all(r["origen"] == "bfs" for r in recs))
+        self.assertEqual(recs[0]["usuarios"], [1, 3])
+
+    def test_no_recomienda_vistas_y_es_determinista(self):
+        g = self.grafo()
+        recs = recomendar_bfs(g, 0, n=5)
+        self.assertFalse({r["movie_id"] for r in recs} & {"M1", "M2", "M3"})
+        self.assertEqual(recs, recomendar_bfs(self.grafo(), 0, n=5))
+
+    def test_camino_valido(self):
+        g = self.grafo()
+        for r in recomendar_bfs(g, 0, n=5):
+            camino = r["camino"]
+            self.assertEqual(camino[0], U(0))
+            self.assertEqual(camino[-1], P(r["movie_id"]))
+            for a, b in zip(camino, camino[1:]):
+                self.assertEqual(g.arista(a, b)["tipo"], ARISTA_VISTA)
+
+    def test_limite_n(self):
+        self.assertEqual([r["movie_id"] for r in recomendar_bfs(self.grafo(), 0, n=2)], ["M4", "M5"])
+
+    def test_respaldo_por_popularidad(self):
+        recs = recomendar_bfs(self.grafo(), 5, n=5)  # usuario sin vistas: el BFS no da candidatas
+        self.assertEqual([(r["movie_id"], r["origen"], r["puntaje"]) for r in recs],
+                         [("M1", "popularidad", 3), ("M3", "popularidad", 3), ("M2", "popularidad", 2),
+                          ("M4", "popularidad", 2), ("M5", "popularidad", 2)])
+        self.assertTrue(all(r["camino"] == [] for r in recs))
+
+    def test_completa_con_popularidad_sin_repetir(self):
+        g = self.grafo()
+        recs = recomendar_bfs(g, 2, n=5)  # u2 vio M3 M5
+        ids = [r["movie_id"] for r in recs]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertFalse(set(ids) & {"M3", "M5"})
+        origenes = [r["origen"] for r in recs]
+        self.assertEqual(origenes, sorted(origenes, key=lambda o: o != "bfs"))  # primero las del BFS
 
 
 class TestDFS(unittest.TestCase):

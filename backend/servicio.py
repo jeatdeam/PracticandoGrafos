@@ -14,7 +14,7 @@ CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
 from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
-from recorridos import recorrido_pasos  # noqa: E402
+from recorridos import recomendar_bfs, recorrido_pasos  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
@@ -207,14 +207,35 @@ class Project_Streaming:
         return self.grafo_completo.conteo()
 
     def generar_recomendaciones(self):
+        """Descarta las recomendaciones guardadas: el grafo cambió. Se vuelven a
+        calcular con BFS solo cuando se pide un perfil (recomendaciones_de)."""
         self.recomendaciones = {}
-        for id_usuario, usuario in self.usuarios_registrados.items():
-            vistas = {p["titulo"] for p in usuario.get_peliculasVistas()}
-            filtradas = datos[datos["genero"] == str(usuario.genero_preferido)]
-            recomendadas = [
-                p for p in filtradas.to_dict(orient="records") if p["titulo"] not in vistas
-            ]
-            self.recomendaciones[id_usuario] = recomendadas[:PELICULAS_A_RECOMENDAR]
+
+    def recomendaciones_de(self, id_usuario):
+        """Recomendaciones del usuario con BFS (recorridos.recomendar_bfs)."""
+        if id_usuario not in self.recomendaciones:
+            self.recomendaciones[id_usuario] = recomendar_bfs(
+                self.grafo_completo, id_usuario, PELICULAS_A_RECOMENDAR
+            )
+        return self.recomendaciones[id_usuario]
+
+    def recomendacion_a_json(self, recomendacion):
+        """Película recomendada + por qué: origen, puntaje y el camino del BFS
+        (usuario -> película en común -> otro usuario -> película)."""
+        explicacion = None
+        if recomendacion["origen"] == "bfs":
+            _, pelicula_comun, vecino, _ = recomendacion["camino"]
+            explicacion = {
+                "pelicula": pelicula_a_json(peliculas_por_id[self.grafo_completo.nodos[pelicula_comun]["id"]])["titulo"],
+                "usuario": self.grafo_completo.nodos[vecino]["nombre"],
+            }
+        return {
+            **pelicula_a_json(peliculas_por_id[recomendacion["movie_id"]]),
+            "origen": recomendacion["origen"],
+            "puntaje": recomendacion["puntaje"],
+            "usuarios_que_la_vieron": len(recomendacion["usuarios"]),
+            "explicacion": explicacion,
+        }
 
     # ------------------------- Serialización para la API -------------------------
 
@@ -256,7 +277,7 @@ class Project_Streaming:
             **self.usuario_a_json(id_usuario),
             # Las más recientes primero
             "peliculas_vistas": [pelicula_a_json(p) for p in reversed(usuario.get_peliculasVistas())],
-            "recomendadas": [pelicula_a_json(p) for p in self.recomendaciones[id_usuario]],
+            "recomendadas": [self.recomendacion_a_json(r) for r in self.recomendaciones_de(id_usuario)],
             "generos": dict(sorted(conteo.items(), key=lambda x: -x[1])),
             "conexiones": [
                 {

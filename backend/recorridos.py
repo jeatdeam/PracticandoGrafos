@@ -12,10 +12,10 @@ adyacencia (diccionario nodo -> vecinos) y a ids de nodo "U:<id>" / "P:<id>":
 Hay una sola implementación de cada uno; los usos se distinguen por el tipo
 de arista que se recorre:
     - animación de /api/recorrido: BFS o DFS por aristas usuario-usuario
-    - recomendaciones: BFS por aristas "vista" hasta el nivel 3
+    - recomendaciones (recomendar_bfs): BFS por aristas "vista" hasta el nivel 3
     - componentes conexas: DFS por aristas usuario-usuario
 """
-from grafo import ARISTA_USUARIO, ARISTA_VISTA, TIPO_PELICULA, TIPO_USUARIO, nodo_usuario
+from grafo import ARISTA_USUARIO, ARISTA_VISTA, TIPO_PELICULA, TIPO_USUARIO, nodo_pelicula, nodo_usuario
 
 
 def vecinos(grafo, u, tipo_arista=None):
@@ -120,6 +120,70 @@ def candidatos_bfs(grafo, id_usuario):
 
     candidatas.sort(key=lambda c: (-len(c["usuarios"]), c["movie_id"]))
     return candidatas
+
+
+def recomendar_bfs(grafo, id_usuario, n=5):
+    """Las n mejores recomendaciones para un usuario a partir del BFS.
+
+    Puntaje de una candidata = suma, sobre los usuarios del nivel 2 que la
+    vieron, de cuántas películas tienen en común con el usuario (un vecino
+    más parecido en lo que vio pesa más). Desempate: primero las del género
+    favorito del usuario (el género solo ordena) y luego por id.
+
+    Si el BFS da menos de n candidatas (por ejemplo, un usuario sin vistas),
+    se completa con las películas más vistas que el usuario no vio, marcadas
+    con origen "popularidad".
+
+    Cada recomendación: {movie_id, origen, puntaje, usuarios, camino}.
+    Tiempo: el del BFS, más O(L * m) para contar películas en común con los
+    L usuarios del nivel 2 (m = vistas por usuario), más ordenar las C
+    candidatas O(C log C).
+    """
+    u = nodo_usuario(id_usuario)
+    vistas_u = set(grafo.vecinos(u, ARISTA_VISTA))
+    genero_u = grafo.nodos[u]["genero"]
+
+    comunes = {}  # usuario del nivel 2 -> películas en común con u
+    recomendaciones = []
+    for c in candidatos_bfs(grafo, id_usuario):
+        puntaje = 0
+        for id_v in c["usuarios"]:
+            v = nodo_usuario(id_v)
+            if v not in comunes:
+                comunes[v] = len(vistas_u & set(grafo.vecinos(v, ARISTA_VISTA)))
+            puntaje += comunes[v]
+        recomendaciones.append({
+            "movie_id": c["movie_id"],
+            "origen": "bfs",
+            "puntaje": puntaje,
+            "usuarios": c["usuarios"],
+            "camino": c["camino"],
+        })
+
+    def es_otro_genero(r):
+        return grafo.nodos[nodo_pelicula(r["movie_id"])]["genero"] != genero_u
+
+    recomendaciones.sort(key=lambda r: (-r["puntaje"], es_otro_genero(r), r["movie_id"]))
+    recomendaciones = recomendaciones[:n]
+
+    if len(recomendaciones) < n:
+        # Respaldo: películas más vistas (más aristas "vista") que no vio ni ya se eligieron
+        elegidas = {nodo_pelicula(r["movie_id"]) for r in recomendaciones}
+        populares = [
+            p for p, atributos in grafo.nodos.items()
+            if atributos["tipo"] == TIPO_PELICULA and p not in vistas_u and p not in elegidas
+        ]
+        populares.sort(key=lambda p: (-len(grafo.adyacencia[p]), grafo.nodos[p]["id"]))
+        for p in populares[: n - len(recomendaciones)]:
+            recomendaciones.append({
+                "movie_id": grafo.nodos[p]["id"],
+                "origen": "popularidad",
+                "puntaje": len(grafo.adyacencia[p]),
+                "usuarios": [],
+                "camino": [],
+            })
+
+    return recomendaciones
 
 
 # ----------------------------------- DFS -----------------------------------

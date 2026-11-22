@@ -72,6 +72,28 @@ class TestServicio(unittest.TestCase):
         self.assertTrue(self.proyecto.ver_pelicula(0, nueva)["nueva"])
         self.assertEqual(self.proyecto.resumen()["aristas"]["vista"], antes + 1)
 
+    def test_recomendaciones_por_bfs(self):
+        for id_usuario, usuario in self.proyecto.usuarios_registrados.items():
+            detalle = self.proyecto.detalle_usuario(id_usuario)
+            recomendadas = detalle["recomendadas"]
+            self.assertEqual(len(recomendadas), 5)
+            vistas = {p["movie_id"] for p in usuario.get_peliculasVistas()}
+            self.assertFalse({r["id"] for r in recomendadas} & vistas)
+            for r in recomendadas:
+                self.assertIn(r["origen"], ("bfs", "popularidad"))
+                if r["origen"] == "bfs":
+                    self.assertGreaterEqual(r["usuarios_que_la_vieron"], 1)
+                    self.assertTrue(r["explicacion"]["usuario"] and r["explicacion"]["pelicula"])
+            if vistas:  # con vistas, el BFS da candidatas en esta población
+                self.assertEqual(recomendadas[0]["origen"], "bfs")
+
+    def test_recomendaciones_se_recalculan_al_ver(self):
+        antes = self.proyecto.detalle_usuario(0)["recomendadas"]
+        pelicula = antes[0]["id"]
+        self.proyecto.ver_pelicula(0, pelicula)
+        despues = self.proyecto.detalle_usuario(0)["recomendadas"]
+        self.assertNotIn(pelicula, {r["id"] for r in despues})
+
 
 @unittest.skipIf(FALTAN + FALTAN_API, f"Faltan dependencias: {', '.join(FALTAN + FALTAN_API)}")
 class TestApi(unittest.TestCase):
