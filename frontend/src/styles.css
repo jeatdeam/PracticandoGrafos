@@ -301,6 +301,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   pointer-events: none;
 }
 .grafo-stats { top: 12px; }
+.grafo-restablecer {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  background: rgba(38,38,38,0.85);
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #ddd;
+}
+.grafo-restablecer:hover { background: #333; color: #fff; }
 .grafo-stats b { color: #fff; }
 .leyenda { bottom: 12px; right: 14px; }
 .leyenda span { display: flex; align-items: center; gap: 6px; }
@@ -497,3 +510,47 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* ---------------- Fotos de perfil ---------------- */
 .avatar { position: relative; overflow: hidden; }
 .avatar-foto { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------------- Recorridos BFS / DFS ---------------- */
+.grafo-cuerpo { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.grafo-cuerpo .grafo-lienzo { flex: 1; min-width: 0; }
+.recorrido-panel {
+  width: 320px;
+  flex-shrink: 0;
+  background: #141414;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  font-size: 14px;
+}
+.recorrido-titulo { display: flex; justify-content: space-between; align-items: baseline; }
+.recorrido-titulo h2 { font-size: 22px; color: #fff; }
+.recorrido-explicacion { color: #bbb; line-height: 1.5; font-size: 13px; }
+.recorrido-botones { display: flex; gap: 6px; }
+.recorrido-botones button { background: #262626; border-radius: 4px; padding: 8px 10px; min-width: 38px; }
+.recorrido-botones button:hover { background: #333; }
+.recorrido-botones .principal { flex: 1; background: #fff; color: #000; font-weight: 700; }
+.recorrido-botones .principal:hover { background: rgba(255,255,255,0.8); }
+.recorrido-opciones { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.recorrido-sonido { background: #262626; border-radius: 4px; padding: 6px 10px; font-size: 12px; }
+.recorrido-sonido:hover { background: #333; }
+.recorrido-velocidad button { padding: 5px 12px; font-size: 12px; }
+.recorrido-bloque { display: flex; flex-direction: column; gap: 6px; }
+.recorrido-bloque h3 { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gris); }
+.recorrido-bloque .gris { font-size: 12px; line-height: 1.4; }
+.amarillo { color: #ffd23f; }
+.recorrido-fichas { display: flex; flex-wrap: wrap; gap: 5px; max-height: 96px; overflow-y: auto; }
+.ficha { background: #262626; border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+.recorrido-orden ol { list-style: decimal inside; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; font-size: 13px; color: #ccc; }
+.recorrido-orden li.actual { color: #ffd23f; font-weight: 700; }
+
+@media (max-width: 900px) {
+  .grafo-pagina { height: auto; min-height: 100vh; }
+  .grafo-cuerpo.con-panel { flex-direction: column; }
+  .grafo-cuerpo .grafo-lienzo { min-height: 60vh; }
+  .recorrido-panel { width: auto; }
+}
