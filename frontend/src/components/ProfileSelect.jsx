@@ -1,9 +1,12 @@
 import Avatar from './Avatar'
+import LogoFirma from './LogoFirma'
 
 export default function ProfileSelect({ usuarios, onElegir, onConfigurar }) {
   return (
     <div className="perfiles">
-      <div className="logo logo-grande">GRAFOFLIX</div>
+      <button className="logo logo-grande logo-lottie" onClick={onConfigurar} title="Volver al inicio (elegir cuántos usuarios)" aria-label="Grafoflix: volver al inicio">
+        <LogoFirma variante="grande" />
+      </button>
       <h1>¿Quién está viendo ahora?</h1>
       <p className="perfiles-total">{usuarios.length} usuarios registrados</p>
       <div className="perfiles-grid">

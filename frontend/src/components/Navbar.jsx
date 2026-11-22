@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Avatar from './Avatar'
+import LogoFirma from './LogoFirma'
 
-export default function Navbar({ perfil, usuarios, vista, onVista, onPerfil, onSalir }) {
+export default function Navbar({ perfil, usuarios, vista, onVista, onPerfil, onSalir, onLogo }) {
   const [abierto, setAbierto] = useState(false)
   const [solida, setSolida] = useState(false)
   const menu = useRef(null)
@@ -29,7 +30,9 @@ export default function Navbar({ perfil, usuarios, vista, onVista, onPerfil, onS
   return (
     <nav className={`navbar ${solida ? 'navbar-solida' : ''}`}>
       <div className="navbar-izq">
-        <div className="logo">GRAFOFLIX</div>
+        <button className="logo logo-lottie" onClick={onLogo} title="Volver al inicio (elegir cuántos usuarios)" aria-label="Grafoflix: volver al inicio">
+          <LogoFirma variante="nav" />
+        </button>
         <button className={vista === 'inicio' ? 'activo' : ''} onClick={() => onVista('inicio')}>Inicio</button>
         <button className={vista === 'explorar' ? 'activo' : ''} onClick={() => onVista('explorar')}>Explorar</button>
         <button className={vista === 'grafo' ? 'activo' : ''} onClick={() => onVista('grafo')}>Grafos</button>

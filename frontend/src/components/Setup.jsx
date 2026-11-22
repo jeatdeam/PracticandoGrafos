@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import LogoFirma from './LogoFirma'
 
 const MIN = 2
 const MAX = 300
@@ -22,7 +23,7 @@ export default function Setup({ guardados, onGenerar, onContinuar }) {
 
   return (
     <div className="setup">
-      <div className="logo logo-grande">GRAFOFLIX</div>
+      <h2 className="logo logo-grande logo-lottie" aria-label="Grafoflix"><LogoFirma variante="grande" /></h2>
 
       <form className="setup-caja" onSubmit={generar}>
         <h1>¿Con cuántos usuarios quieres empezar?</h1>

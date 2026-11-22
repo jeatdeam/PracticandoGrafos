@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Browse from './components/Browse'
 import Catalog from './components/Catalog'
 import GraphView from './components/GraphView'
+import CargandoEsfera from './components/CargandoEsfera'
 
 export default function App() {
   const [usuarios, setUsuarios] = useState([])
@@ -65,7 +66,7 @@ export default function App() {
     )
   }
 
-  if (!cargado) return <div className="estado">Cargando...</div>
+  if (!cargado) return <div className="estado"><CargandoEsfera tamano={140} texto="Cargando..." /></div>
 
   if (!configurado) {
     return <Setup guardados={usuarios.length} onGenerar={regenerar} onContinuar={() => setConfigurado(true)} />
@@ -86,6 +87,12 @@ export default function App() {
         onVista={setVista}
         onPerfil={setPerfilId}
         onSalir={() => setPerfilId(null)}
+        // El logo lleva al inicio: la pantalla donde se elige cuántos usuarios usar
+        onLogo={() => {
+          setPerfilId(null)
+          setVista('inicio')
+          setConfigurado(false)
+        }}
       />
       {vista === 'inicio' && (
         <Browse

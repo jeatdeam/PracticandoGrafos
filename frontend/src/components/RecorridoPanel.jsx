@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { sonarFin, sonarVisita } from '../sonido'
+import CargandoEsfera from './CargandoEsfera'
 
 const VELOCIDADES = [
   { etiqueta: 'Lenta', ms: 1100 },
@@ -13,7 +14,7 @@ const EXPLICACION = {
 }
 
 /** Controles y estado paso a paso de un recorrido BFS/DFS. */
-export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe }) {
+export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe, grafoListo = true }) {
   const [reproduciendo, setReproduciendo] = useState(false)
   const [velocidad, setVelocidad] = useState(1)
   const total = datos?.pasos.length ?? 0
@@ -39,8 +40,9 @@ export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe })
     if (paso === total) setTimeout(sonarFin, 350)
   }, [paso])
 
-  // Al cargar un recorrido nuevo arranca solo
-  useEffect(() => setReproduciendo(total > 0), [datos])
+  // Al cargar un recorrido nuevo arranca solo, pero solo cuando el grafo ya
+  // está dibujado; mientras se dibuja queda en pausa en el paso 0
+  useEffect(() => setReproduciendo(total > 0 && grafoListo), [datos, grafoListo])
 
   useEffect(() => {
     if (!reproduciendo) return
@@ -53,7 +55,7 @@ export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe })
   }, [reproduciendo, paso, total, velocidad])
 
   if (!datos) {
-    return <aside className="recorrido-panel"><p className="gris">Calculando recorrido...</p></aside>
+    return <aside className="recorrido-panel"><CargandoEsfera tamano={90} texto="Calculando recorrido..." /></aside>
   }
 
   const actual = paso > 0 ? datos.pasos[paso - 1] : null
@@ -108,7 +110,7 @@ export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe })
             {actual.padre !== null ? <> desde <b>{nombreDe(actual.padre)}</b></> : ' (inicio de un componente)'}
           </p>
         ) : (
-          <p className="gris">Pulsa reproducir o avanza paso a paso.</p>
+          <p className="gris">{grafoListo ? 'Pulsa reproducir o avanza paso a paso.' : 'Dibujando el grafo... el recorrido empieza en cuanto termine.'}</p>
         )}
         <p className="gris">
           Recorre solo la figura de <b>{datos.genero}</b>: los {total} usuarios conectados con el inicial. Las demás figuras no se tocan.

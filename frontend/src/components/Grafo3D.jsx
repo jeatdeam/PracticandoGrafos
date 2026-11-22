@@ -167,7 +167,7 @@ const sinEtiqueta = () => ''
 // Cuánto crecen las nubes de la figura enfocada
 const ESCALA_FOCO = 1.3
 
-export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, areaDer = 0, areaArriba = 0, areaAbajo = 0, alinear = 'centro', escala = 1, interactivo = false, recorrido = null, reinicio = 0, enfocarGenero = '' }) {
+export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, areaDer = 0, areaArriba = 0, areaAbajo = 0, alinear = 'centro', escala = 1, interactivo = false, recorrido = null, reinicio = 0, enfocarGenero = '', onListo }) {
   const contenedor = useRef(null)
   const grafo = useRef(null)
   const ajustado = useRef(false)
@@ -180,6 +180,16 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
   const [tamano, setTamano] = useState(null)
   // El grafo queda invisible mientras se acomoda y aparece ya encuadrado
   const [listo, setListo] = useState(false)
+  // Avisa al padre cuando el grafo ya está dibujado y visible (tras el
+  // fundido de entrada de 0.5 s), p. ej. para empezar el recorrido BFS/DFS
+  useEffect(() => {
+    if (!listo) {
+      onListo?.(false)
+      return
+    }
+    const id = setTimeout(() => onListo?.(true), 600)
+    return () => clearTimeout(id)
+  }, [listo])
   // Quien pidió reducir el movimiento en su sistema ve el grafo quieto
   const moverse = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 

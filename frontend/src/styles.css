@@ -30,6 +30,18 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   transform: scaleY(1.25);
 }
 .logo-grande { position: absolute; top: 28px; left: 4%; font-size: 34px; }
+/* Logo como firma Lottie: sin la tipografía del logo de texto */
+.logo-lottie { transform: none; line-height: 0; padding: 0; margin: 0; background: none; border: 0; }
+.logo-grande.logo-lottie { top: clamp(8px, 1.5vw, 18px); left: calc(4% - 1vw); z-index: 5; max-width: 92%; }
+/* Tamaño relativo: el ancho depende de la ventana (con mínimo y máximo) y el
+   alto sale de la proporción del Lottie (aspect-ratio en LogoFirma.jsx).
+   Máximos: 287 px en la barra y 416 px en las pantallas de inicio. */
+.logo-firma { display: block; height: auto; max-width: 100%; }
+.logo-firma-nav { width: clamp(84px, 21vw, 287px); }
+/* Ancho del logo grande; su alto es ancho x 330/1090 (proporción del Lottie) */
+:root { --logo-grande-ancho: clamp(170px, 34vw, 416px); }
+.logo-firma-grande { width: var(--logo-grande-ancho); }
+.logo-firma svg { display: block; }
 
 /* ---------------- Selección de perfiles ---------------- */
 .perfiles {
@@ -39,6 +51,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   align-items: center;
   justify-content: center;
   padding: 110px 16px 60px;
+  /* que el contenido empiece debajo del logo grande, sin taparse */
+  padding-top: max(110px, calc(var(--logo-grande-ancho) * 330 / 1090 + 56px));
 }
 .perfiles h1 { font-size: clamp(28px, 4vw, 52px); font-weight: 500; margin-bottom: 36px; color: #fff; }
 .perfiles-grid {
@@ -92,9 +106,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .navbar-solida { background: var(--fondo); }
 .navbar-izq { display: flex; align-items: center; gap: 22px; }
 .navbar-izq .logo { margin-right: 14px; }
+/* El Lottie trae aire arriba y abajo: márgenes negativos para no agrandar la barra */
+.navbar-izq .logo-lottie { margin: clamp(-24px, -1.7vw, -6px) 0 clamp(-24px, -1.7vw, -6px) clamp(-18px, -1.3vw, -6px); flex-shrink: 1; min-width: 0;
+  /* 20 px más abajo dentro de la barra (sin cambiar el alto de la barra) */
+  position: relative; top: 20px; }
 .navbar-izq button { color: #bbb; font-size: 14px; }
 .navbar-izq button.activo { color: #fff; font-weight: 700; }
 .navbar-izq button:hover { color: #fff; }
+.navbar-izq button.logo, .navbar-izq button.logo:hover { color: var(--rojo); font-size: 26px; font-weight: 800; }
+button.logo { cursor: pointer; }
+button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .navbar-perfil { position: relative; }
 .navbar-avatar { display: flex; align-items: center; gap: 8px; }
 .navbar-avatar .avatar { border-radius: 4px; }
@@ -325,6 +346,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   display: grid;
   place-items: center;
   padding: 110px 16px 40px;
+  padding-top: max(110px, calc(var(--logo-grande-ancho) * 330 / 1090 + 56px));
   background: radial-gradient(ellipse at 50% 0%, rgba(229,9,20,0.25), transparent 60%), #000;
 }
 .setup-caja {
@@ -554,3 +576,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   .grafo-cuerpo .grafo-lienzo { min-height: 60vh; }
   .recorrido-panel { width: auto; }
 }
+
+/* ---------------- Carga: esfera de bolitas en three.js ---------------- */
+.cargando-esfera { display: inline-flex; flex-direction: column; align-items: center; gap: 10px; color: var(--gris); font-size: 14px; }
+.cargando-esfera canvas { display: block; }
+.grafo-cargando { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 2; }
+.recorrido-panel .cargando-esfera { width: 100%; padding: 24px 0; }

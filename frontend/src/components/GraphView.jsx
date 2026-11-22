@@ -3,6 +3,7 @@ import { api } from '../api'
 import { COLOR_GENERO } from '../colores'
 import Grafo3D from './Grafo3D'
 import RecorridoPanel from './RecorridoPanel'
+import CargandoEsfera from './CargandoEsfera'
 
 // Mismo nombre que usa el backend para quien aún no vio películas
 const SIN_GENERO = 'sin peliculas vistas'
@@ -20,6 +21,8 @@ export default function GraphView({ perfilId, usuarios }) {
   // Género elegido en la lista de géneros ('' = todos): en el grafo completo
   // agranda su figura; en sub-grafo/BFS/DFS salta a un usuario de ese género
   const [generoFiltro, setGeneroFiltro] = useState('')
+  // El grafo 3D ya terminó de dibujarse y se ve: recién ahí arranca el recorrido
+  const [grafoListo, setGrafoListo] = useState(false)
 
   const esRecorrido = modo === 'bfs' || modo === 'dfs'
   const esSub = modo === 'sub'
@@ -148,11 +151,18 @@ export default function GraphView({ perfilId, usuarios }) {
             onNodeClick={esRecorrido ? setInicioId : verSubGrafo}
             interactivo
             recorrido={estado}
+            onListo={setGrafoListo}
             reinicio={reinicio}
             enfocarGenero={modo === 'completo' ? generoFiltro : ''}
             // El grafo completo se muestra un 50% más grande
             escala={modo === 'completo' ? 1.5 : 1}
           />
+          {/* Mientras el grafo se acomoda (invisible) se muestra la esfera de carga */}
+          {!grafoListo && (
+            <div className="grafo-cargando">
+              <CargandoEsfera tamano={130} texto="Dibujando el grafo..." />
+            </div>
+          )}
           <button className="grafo-restablecer" onClick={() => setReinicio(reinicio + 1)} title="Volver a la vista inicial">
             ⟲ Restablecer vista
           </button>
@@ -176,7 +186,7 @@ export default function GraphView({ perfilId, usuarios }) {
           )}
         </div>
         {esRecorrido && (
-          <RecorridoPanel tipo={modo} datos={pasos} paso={paso} setPaso={setPaso} nombreDe={nombreDe} />
+          <RecorridoPanel tipo={modo} datos={pasos} paso={paso} setPaso={setPaso} nombreDe={nombreDe} grafoListo={grafoListo} />
         )}
       </div>
     </main>

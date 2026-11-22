@@ -5,6 +5,7 @@ import Avatar from './Avatar'
 import Grafo3D from './Grafo3D'
 import MovieRow from './MovieRow'
 import MovieModal from './MovieModal'
+import CargandoEsfera from './CargandoEsfera'
 
 export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onVisto }) {
   const [detalle, setDetalle] = useState(null)
@@ -54,7 +55,7 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
     return Object.keys(detalle.generos).map((g) => [g, detalle.peliculas_vistas.filter((p) => p.genero === g)])
   }, [detalle])
 
-  if (!detalle) return <div className="estado">Cargando perfil...</div>
+  if (!detalle) return <div className="estado"><CargandoEsfera tamano={140} texto="Cargando perfil..." /></div>
 
   const destacada = detalle.recomendadas[0]
   const maximo = Math.max(1, ...Object.values(detalle.generos))
