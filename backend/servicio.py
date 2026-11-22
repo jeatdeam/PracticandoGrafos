@@ -13,7 +13,7 @@ from faker import Faker
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
-from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
+from grafo import ARISTA_USUARIO, MOTIVO_GENERO, TIPO_USUARIO, Grafo, construir_grafo, nodo_usuario  # noqa: E402
 from recorridos import componentes_usuarios, recomendar_bfs, recorrido_pasos  # noqa: E402
 from mst import bosque_expansion_minima  # noqa: E402
 
@@ -88,6 +88,10 @@ class Project_Streaming:
         self.usuarios_registrados = {}
         self.grafo = {}            # vista de usuarios: id -> [ids conectados]
         self.grafo_completo = None  # grafo único (usuarios + películas), ver grafo.py
+        # Vista por género (solo para dibujar y recorrer): usuarios unidos solo si
+        # comparten género favorito, así cada género queda como una figura aparte
+        self.grafo_genero = None    # Grafo con nodos de usuario y aristas de mismo género
+        self.vecinos_genero = {}    # id -> [ids del mismo género favorito]
         self.recomendaciones = {}
         crear_tablas()
 
@@ -196,6 +200,23 @@ class Project_Streaming:
         self.grafo_completo = construir_grafo(peliculas_por_id.values(), usuarios)
         # Vista filtrada del mismo grafo: solo aristas usuario-usuario
         self.grafo = {u: self.grafo_completo.usuarios_conectados(u) for u in self.usuarios_registrados}
+        self.generar_grafo_genero()
+
+    def generar_grafo_genero(self):
+        """Vista por género del grafo único: los mismos usuarios, pero solo las
+        aristas usuario-usuario que tienen el motivo "genero". Es la que se dibuja
+        (grafo completo y sub-grafo) y la que recorren BFS y DFS en la animación,
+        para que cada género sea una figura separada. Las recomendaciones y
+        Kruskal siguen usando el grafo único completo."""
+        self.grafo_genero = Grafo()
+        for u in self.usuarios_registrados:
+            self.grafo_genero.agregar_nodo(nodo_usuario(u), tipo=TIPO_USUARIO, id=u)
+        for u in self.usuarios_registrados:
+            for v in self.grafo[u]:
+                arista = self.conexion(u, v)
+                if u < v and MOTIVO_GENERO in arista["motivos"]:
+                    self.grafo_genero.agregar_arista(nodo_usuario(u), nodo_usuario(v), **arista)
+        self.vecinos_genero = {u: self.grafo_genero.usuarios_conectados(u) for u in self.usuarios_registrados}
 
     def conexion(self, id_1, id_2):
         """Motivos y películas comunes de la arista usuario-usuario."""
@@ -291,9 +312,11 @@ class Project_Streaming:
         }
 
     def grafo_json(self, nodos_usuario=None):
-        """Vista de usuarios del grafo único para el frontend. Los nodos "g:<género>"
-        son agrupadores visuales, no vértices del grafo. Si se pasa una lista de
-        nodos, devuelve solo ese sub-grafo."""
+        """Vista por género para el frontend: usuarios unidos solo si comparten
+        género favorito, así cada género queda como una figura separada. Los
+        nodos "g:<género>" son el centro de cada figura (agrupadores visuales, no
+        vértices del grafo). Si se pasa una lista de nodos, devuelve solo ese
+        sub-grafo."""
         ids = list(self.usuarios_registrados) if nodos_usuario is None else nodos_usuario
         nodos, aristas, agregadas, generos = [], [], set(), set()
 
@@ -304,7 +327,7 @@ class Project_Streaming:
             nodos.append({"id": str(u), "label": f"{usuario.nombre}-{u}", "tipo": "usuario", "genero": genero})
             aristas.append({"source": f"g:{genero}", "target": str(u), "tipo": "genero"})
 
-            for v in self.grafo[u]:
+            for v in self.vecinos_genero[u]:
                 if v in ids and (u, v) not in agregadas:
                     arista = self.conexion(u, v)
                     aristas.append({
@@ -320,7 +343,8 @@ class Project_Streaming:
         return {"nodes": nodos, "links": aristas}
 
     def sub_grafo_json(self, id_usuario):
-        return self.grafo_json([id_usuario] + self.grafo[id_usuario])
+        """El usuario, su género favorito y sus colegas de ese mismo género."""
+        return self.grafo_json([id_usuario] + self.vecinos_genero[id_usuario])
 
     def kruskal(self):
         """Red simplificada: bosque de expansión mínima (Kruskal + UFDS, mst.py)
@@ -339,9 +363,14 @@ class Project_Streaming:
         }
 
     def recorrido(self, tipo, inicio, todo=False):
-        """Pasos de un BFS o DFS por la vista de usuarios del grafo único, para
-        la animación paso a paso. Usa los algoritmos de recorridos.py."""
-        return recorrido_pasos(self.grafo_completo, tipo, inicio, todo)
+        """Pasos de un BFS o DFS para la animación paso a paso, sobre la vista por
+        género: recorre el sub-grafo (la figura del género) del usuario inicial,
+        no todo el grafo. Usa los algoritmos de recorridos.py."""
+        if self.grafo_genero is None:  # base vacía: aún no se generó nada
+            self.generar_grafo()
+        datos = recorrido_pasos(self.grafo_genero, tipo, inicio, todo)
+        datos["genero"] = self.usuarios_registrados[inicio].genero_preferido or SIN_GENERO
+        return datos
 
     def matriz_adyacencia(self):
         nodos = sorted(self.grafo)

@@ -65,6 +65,32 @@ class TestServicio(unittest.TestCase):
         matriz = self.proyecto.matriz_adyacencia()
         self.assertEqual(len(matriz["matriz"]), 12)
 
+    def test_vista_separada_por_genero(self):
+        """Grafo, sub-grafo y recorridos se dibujan por género: nunca hay aristas
+        entre usuarios de géneros distintos y BFS/DFS se quedan en la figura del
+        usuario inicial."""
+        genero = {u: us.get_generoFav() for u, us in self.proyecto.usuarios_registrados.items()}
+        datos = self.proyecto.grafo_json()
+        for l in datos["links"]:
+            if l["tipo"] == "usuario":
+                self.assertIsNotNone(genero[int(l["source"])])
+                self.assertEqual(genero[int(l["source"])], genero[int(l["target"])])
+        for u in self.proyecto.usuarios_registrados:
+            sub = self.proyecto.sub_grafo_json(u)
+            usuarios_sub = [int(n["id"]) for n in sub["nodes"] if n["tipo"] == "usuario"]
+            generos_sub = [n for n in sub["nodes"] if n["tipo"] == "genero"]
+            self.assertEqual(len(generos_sub), 1)  # una sola esfera de género al centro
+            if genero[u] is None:
+                self.assertEqual(usuarios_sub, [u])
+            else:
+                self.assertEqual({genero[v] for v in usuarios_sub}, {genero[u]})
+                mismos = {v for v, g in genero.items() if g == genero[u]}
+                self.assertEqual(set(usuarios_sub), mismos)
+            for tipo in ("bfs", "dfs"):
+                r = self.proyecto.recorrido(tipo, u)
+                self.assertEqual(set(r["miembros"]), set(usuarios_sub))
+                self.assertEqual(r["pasos"][0]["nodo"], u)
+
     def test_ver_pelicula_actualiza_el_grafo(self):
         antes = self.proyecto.resumen()["aristas"]["vista"]
         vistas = {p["movie_id"] for p in self.proyecto.usuarios_registrados[0].get_peliculasVistas()}

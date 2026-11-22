@@ -7,12 +7,15 @@ import CargandoEsfera from './CargandoEsfera'
 
 // Mismo nombre que usa el backend para quien aún no vio películas
 const SIN_GENERO = 'sin peliculas vistas'
+const VACIO = { nodes: [], links: [] }
 
 export default function GraphView({ perfilId, usuarios }) {
   const [modo, setModo] = useState('completo')
   const [subId, setSubId] = useState(perfilId)
   const [inicioId, setInicioId] = useState(perfilId)
-  const [datos, setDatos] = useState({ nodes: [], links: [] })
+  // Grafo que devolvió el backend y para qué se pidió ('completo' o 'sub:<id>').
+  // Así nunca se dibuja el grafo de otro modo si una respuesta llega tarde.
+  const [respuesta, setRespuesta] = useState({ fuente: null, datos: VACIO })
   // Recorrido BFS/DFS: pasos que devuelve el backend y cuántos se muestran
   const [pasos, setPasos] = useState(null)
   const [paso, setPaso] = useState(0)
@@ -32,40 +35,65 @@ export default function GraphView({ perfilId, usuarios }) {
   const esKruskal = modo === 'kruskal'
 
   // BFS, DFS y Kruskal trabajan sobre el grafo completo de usuarios
+  const fuente = esSub ? `sub:${subId}` : 'completo'
+  // Mientras no llega el grafo de este modo se usa uno vacío (se ve la esfera
+  // de carga), nunca el del modo anterior
+  const datos = respuesta.fuente === fuente ? respuesta.datos : VACIO
+
+  // En cada efecto, "vigente" pasa a false si el modo cambia antes de que
+  // llegue la respuesta: así una respuesta vieja no pisa a la nueva
   useEffect(() => {
+    let vigente = true
     const pedir = esSub ? api.subGrafo(subId) : api.grafo()
-    pedir.then(setDatos)
-  }, [esSub, subId])
+    pedir
+      .then((d) => vigente && setRespuesta({ fuente, datos: d }))
+      .catch((e) => console.error('No se pudo cargar el grafo:', e))
+    return () => { vigente = false }
+  }, [fuente])
 
   useEffect(() => {
+    let vigente = true
     setPasos(null)
     setPaso(0)
-    if (esRecorrido) api.recorrido(modo, inicioId).then(setPasos)
+    if (esRecorrido) {
+      api.recorrido(modo, inicioId)
+        .then((d) => vigente && setPasos(d))
+        .catch((e) => console.error('No se pudo calcular el recorrido:', e))
+    }
+    return () => { vigente = false }
   }, [modo, inicioId])
 
   useEffect(() => {
-    if (esKruskal) api.kruskal().then(setBosque)
+    let vigente = true
+    if (esKruskal) {
+      api.kruskal()
+        .then((d) => vigente && setBosque(d))
+        .catch((e) => console.error('No se pudo calcular la red simplificada:', e))
+    }
+    return () => { vigente = false }
   }, [esKruskal])
 
-  // Usuarios que recorre el BFS/DFS (la componente conexa del usuario inicial
-  // en la vista de usuarios). Mientras carga, null: se muestran todos.
+  // Usuarios que recorre el BFS/DFS: el sub-grafo del usuario inicial (los de
+  // su mismo género favorito). Mientras carga, null: se muestran todos.
   const miembros = useMemo(
     () => (esRecorrido && pasos ? new Set(pasos.miembros.map(String)) : null),
     [esRecorrido, pasos],
   )
 
-  // En BFS/DFS se muestran los usuarios recorridos, las aristas entre ellos y
-  // los nodos de género de esos usuarios (agrupadores visuales, no vértices).
+  // En BFS/DFS se muestra solo la figura que se recorre: los usuarios del
+  // género del inicial, las aristas entre ellos y su esfera de género.
   // Se copian los nodos para no tocar los del grafo completo.
   const datosVista = useMemo(() => {
     if (esKruskal && bosque) {
-      // Se dejan todos los nodos y solo las aristas usuario-usuario del bosque
-      const delBosque = new Set(bosque.aristas.flatMap((a) => [`${a.source}-${a.target}`, `${a.target}-${a.source}`]))
+      // Kruskal usa el grafo único (género o películas en común), así que sus
+      // aristas pueden unir géneros distintos: se toman del bosque, no del
+      // grafo por género que se dibuja en los otros modos
       const id = (x) => (typeof x === 'object' ? x.id : x)
       const nodes = datos.nodes.map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
-      const links = datos.links
-        .filter((l) => l.tipo !== 'usuario' || delBosque.has(`${id(l.source)}-${id(l.target)}`))
-        .map((l) => ({ source: id(l.source), target: id(l.target), tipo: l.tipo }))
+      const links = [
+        ...datos.links.filter((l) => l.tipo !== 'usuario').map((l) => ({ source: id(l.source), target: id(l.target), tipo: l.tipo })),
+        ...bosque.aristas.map((a) => ({ source: String(a.source), target: String(a.target), tipo: 'usuario' })),
+      ]
       return { nodes, links }
     }
     if (!miembros) return datos
@@ -97,6 +125,7 @@ export default function GraphView({ perfilId, usuarios }) {
   }, [esRecorrido, pasos, paso, miembros])
 
   const nombreInicio = usuarios.find((u) => u.id === inicioId)?.nombre ?? inicioId
+  const generoInicio = usuarios.find((u) => u.id === inicioId)?.genero_favorito ?? SIN_GENERO
 
   const generoDe = (u) => u.genero_favorito ?? SIN_GENERO
   const generos = useMemo(() => {
@@ -132,10 +161,10 @@ export default function GraphView({ perfilId, usuarios }) {
           <h1>Grafo de usuarios</h1>
           <p className="gris">
             {esRecorrido
-              ? `Recorrido ${modo.toUpperCase()} desde ${nombreInicio} por las conexiones entre usuarios (mismo género favorito o películas vistas en común). Se muestra la componente conexa del usuario inicial. Haz clic en un usuario o elígelo en la lista para empezar desde él.`
+              ? `Recorrido ${modo.toUpperCase()} desde ${nombreInicio} sobre su sub-grafo: la figura de ${generoInicio === SIN_GENERO ? 'quienes no vieron películas' : generoInicio}, solo los usuarios de ese género favorito. Haz clic en un usuario o elige en la lista a alguien de otro género para recorrer su figura.`
               : esKruskal
-                ? 'Red simplificada con Kruskal: de todas las conexiones entre usuarios se dejan solo las del bosque de expansión mínima, con costo = distancia de Jaccard entre sus películas vistas (los más parecidos quedan unidos). Une a todos los usuarios de cada componente con el menor número de aristas.'
-                : 'Dos usuarios están conectados si comparten el mismo género favorito. Arrastra para girar y usa la rueda para acercar. Haz clic en una figura para agrandarla; con ella agrandada, clic en un usuario para ver su sub-grafo o clic fuera para volver.'}
+                ? 'Red simplificada con Kruskal sobre el grafo único (mismo género o al menos 3 películas en común, por eso puede unir géneros): de todas esas conexiones se dejan solo las del bosque de expansión mínima, con costo = distancia de Jaccard entre sus películas vistas (los más parecidos quedan unidos). Une a todos los usuarios de cada componente con el menor número de aristas.'
+                : 'Cada género es una figura separada: al centro su esfera y alrededor los usuarios con ese género favorito, conectados entre sí. Arrastra para girar y usa la rueda para acercar. Haz clic en una figura para agrandarla; con ella agrandada, clic en un usuario para ver su sub-grafo o clic fuera para volver.'}
           </p>
         </div>
         <div className="grafo-controles">

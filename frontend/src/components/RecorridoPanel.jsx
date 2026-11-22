@@ -113,7 +113,8 @@ export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe, g
           <p className="gris">{grafoListo ? 'Pulsa reproducir o avanza paso a paso.' : 'Dibujando el grafo... el recorrido empieza en cuanto termine.'}</p>
         )}
         <p className="gris">
-          Recorre la componente conexa del usuario inicial: los {total} usuarios alcanzables por conexiones entre usuarios.
+          Recorre solo el sub-grafo del usuario inicial: los {total} usuarios con su mismo género favorito
+          {datos.genero ? <> (<b>{datos.genero === 'sin peliculas vistas' ? 'sin películas vistas' : datos.genero}</b>)</> : null}. Las demás figuras no se tocan.
         </p>
       </div>
 
