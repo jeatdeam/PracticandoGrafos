@@ -41,6 +41,11 @@ from recorridos import (  # noqa: E402
     resumen_componentes,
 )
 
+
+def construir_k1(peliculas, usuarios):
+    """Grafos de prueba pequeños: basta 1 película en común para conectar."""
+    return construir_grafo(peliculas, usuarios, min_comunes=1)
+
 PELICULAS = [{"movie_id": f"M{i}", "genero": "Drama" if i <= 3 else "Terror"} for i in range(1, 7)]
 U, P = nodo_usuario, nodo_pelicula
 
@@ -50,7 +55,7 @@ def usuario(genero, vistas):
 
 
 def grafo_base():
-    return construir_grafo(PELICULAS, {
+    return construir_k1(PELICULAS, {
         0: usuario("Drama", ["M1", "M2"]),
         1: usuario("Terror", ["M2", "M4"]),
         2: usuario("Terror", ["M5"]),
@@ -59,7 +64,7 @@ def grafo_base():
 
 
 def grafo_ramas():
-    return construir_grafo(PELICULAS, {
+    return construir_k1(PELICULAS, {
         0: usuario("Drama", ["M1"]),
         1: usuario("Drama", ["M4"]),
         2: usuario("Terror", ["M1"]),
@@ -141,7 +146,7 @@ class TestCandidatosBFS(unittest.TestCase):
         self.assertEqual(candidatos_bfs(grafo_base(), 3), [])
 
     def test_orden_por_cantidad_de_usuarios(self):
-        g = construir_grafo(PELICULAS, {
+        g = construir_k1(PELICULAS, {
             0: usuario("Drama", ["M1", "M2"]),
             1: usuario("Terror", ["M1", "M4", "M5"]),
             2: usuario("Terror", ["M2", "M4"]),
@@ -197,7 +202,7 @@ class TestDFS(unittest.TestCase):
                          {"componentes": 2, "mayor": 3, "aislados": 1, "peliculas_sin_vistas": 2})
 
     def test_sin_usuarios(self):
-        g = construir_grafo(PELICULAS, {})
+        g = construir_k1(PELICULAS, {})
         self.assertEqual(componentes_usuarios(g), {"componentes": [], "aislados": []})
         self.assertEqual(resumen_componentes(g)["peliculas_sin_vistas"], 6)
 

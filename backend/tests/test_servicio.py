@@ -13,6 +13,8 @@ import unittest
 CARPETA_BACKEND = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, CARPETA_BACKEND)
 
+from grafo import MIN_PELICULAS_COMUNES  # noqa: E402
+
 FALTAN = [m for m in ("pandas", "faker") if importlib.util.find_spec(m) is None]
 FALTAN_API = [m for m in ("fastapi", "httpx") if importlib.util.find_spec(m) is None]
 
@@ -49,7 +51,7 @@ class TestServicio(unittest.TestCase):
                     p["movie_id"] for p in otro.get_peliculasVistas()
                 }
                 self.assertEqual(conexion["peliculas_comunes"], len(comunes))
-                self.assertEqual("peliculas" in conexion["motivos"], len(comunes) >= 1)
+                self.assertEqual("peliculas" in conexion["motivos"], len(comunes) >= MIN_PELICULAS_COMUNES)
                 mismo_genero = usuario.get_generoFav() is not None and usuario.get_generoFav() == otro.get_generoFav()
                 self.assertEqual("genero" in conexion["motivos"], mismo_genero)
 

@@ -26,9 +26,11 @@ ARISTA_USUARIO = "usuario"
 MOTIVO_GENERO = "genero"
 MOTIVO_PELICULAS = "peliculas"
 
-# Provisional: lectura literal de "tienen películas vistas en común".
-# Se revisará al medir la densidad del grafo (pendiente de decisión).
-MIN_PELICULAS_COMUNES = 1
+# Mínimo de películas vistas en común para conectar a dos usuarios por ese
+# criterio. Elegido por el equipo tras medir con medir_grafo.py (ver
+# docs/medicion_k.md): dos usuarios al azar comparten en promedio ~1,7
+# películas, así que con 3 solo se conectan coincidencias mayores al promedio.
+MIN_PELICULAS_COMUNES = 3
 
 
 def nodo_usuario(id_usuario):
