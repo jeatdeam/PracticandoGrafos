@@ -37,6 +37,7 @@ Abrir http://localhost:5173
 | GET    | `/api/grafo`          | Grafo completo (usuarios + géneros)                |
 | GET    | `/api/grafo/{id}`     | Sub-grafo de un usuario                            |
 | GET    | `/api/matriz`         | Matriz de adyacencia                               |
+| GET    | `/api/resumen`        | Vértices y aristas del grafo único, por tipo       |
 | POST   | `/api/usuarios/{id}/ver/{movie_id}` | El usuario ve una película (se guarda y se recalcula el grafo) |
 | GET    | `/api/peliculas?genero=&q=&desde=&limite=` | Catálogo con filtros |
 | POST   | `/api/generar?cantidad=25` | Reemplaza todo con N usuarios nuevos (2–300) |
@@ -45,3 +46,24 @@ Los usuarios y sus películas vistas se guardan en `backend/streaming.db` (SQLit
 Para empezar desde cero, borra ese archivo y reinicia el backend.
 
 Documentación interactiva de la API: http://127.0.0.1:8000/docs
+
+## Grafo
+
+Un único grafo no dirigido (`backend/grafo.py`, listas de adyacencia):
+
+- Nodos: usuarios (`U:<id>`) y las 1500 películas del CSV (`P:<movie_id>`). Los géneros son atributos.
+- Aristas `vista` (usuario–película) y `usuario` (usuario–usuario) cuando comparten género favorito válido
+  o tienen películas vistas en común; cada arista guarda `motivos` y `comunes`.
+- `/api/grafo` muestra la vista de usuarios de ese mismo grafo (los nodos de género son solo agrupadores visuales).
+- `backend/recorridos.py`: BFS (cola FIFO, niveles, padres; candidatos por el camino
+  usuario → película → usuario → película y camino mínimo entre usuarios) y DFS iterativo
+  (pila; componentes conexas del grafo completo y de la vista de usuarios).
+
+## Pruebas
+
+```bash
+cd backend
+python -m unittest discover -s tests -v
+```
+
+Las pruebas de `tests/test_servicio.py` se omiten si faltan las dependencias de `requirements.txt` (y `httpx` para la API).

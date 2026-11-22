@@ -83,9 +83,21 @@ def sub_grafo(id_usuario: int):
     return project_streaming.sub_grafo_json(id_usuario)
 
 
+@app.get("/api/resumen")
+def resumen():
+    """Cantidad de vértices y aristas del grafo único, por tipo."""
+    return project_streaming.resumen()
+
+
 @app.get("/api/matriz")
 def matriz():
     return project_streaming.matriz_adyacencia()
+
+
+@app.get("/api/kruskal")
+def kruskal():
+    """Bosque de expansión mínima (Kruskal + UFDS) de la vista de usuarios."""
+    return project_streaming.kruskal()
 
 
 @app.get("/api/recorrido/{tipo}/{id_usuario}")

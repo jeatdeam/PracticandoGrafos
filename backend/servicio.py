@@ -13,6 +13,9 @@ from faker import Faker
 CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
+from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
+from recorridos import componentes_usuarios, recomendar_bfs, recorrido_pasos  # noqa: E402
+from mst import bosque_expansion_minima  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
@@ -83,7 +86,8 @@ class Project_Streaming:
 
     def __init__(self):
         self.usuarios_registrados = {}
-        self.grafo = {}
+        self.grafo = {}            # vista de usuarios: id -> [ids conectados]
+        self.grafo_completo = None  # grafo único (usuarios + películas), ver grafo.py
         self.recomendaciones = {}
         crear_tablas()
 
@@ -179,24 +183,60 @@ class Project_Streaming:
         }
 
     def generar_grafo(self):
-        # Conectamos usuarios que comparten el mismo género favorito
-        self.grafo = {}
-        for id_1, usuario_1 in self.usuarios_registrados.items():
-            self.grafo[id_1] = [
-                id_2
-                for id_2, usuario_2 in self.usuarios_registrados.items()
-                if id_1 != id_2 and usuario_1.get_generoFav() == usuario_2.get_generoFav()
-            ]
+        """Construye el grafo único (usuarios + 1500 películas). Dos usuarios se
+        conectan si comparten género favorito válido o películas vistas."""
+        usuarios = {
+            id_usuario: {
+                "nombre": u.nombre,
+                "genero_favorito": u.get_generoFav(),
+                "vistas": [p["movie_id"] for p in u.get_peliculasVistas()],
+            }
+            for id_usuario, u in self.usuarios_registrados.items()
+        }
+        self.grafo_completo = construir_grafo(peliculas_por_id.values(), usuarios)
+        # Vista filtrada del mismo grafo: solo aristas usuario-usuario
+        self.grafo = {u: self.grafo_completo.usuarios_conectados(u) for u in self.usuarios_registrados}
+
+    def conexion(self, id_1, id_2):
+        """Motivos y películas comunes de la arista usuario-usuario."""
+        return self.grafo_completo.arista(nodo_usuario(id_1), nodo_usuario(id_2))
+
+    def resumen(self):
+        """Conteo verificable de vértices y aristas del grafo construido."""
+        if self.grafo_completo is None:  # base vacía: aún no se generó nada
+            self.generar_grafo()
+        return self.grafo_completo.conteo()
 
     def generar_recomendaciones(self):
+        """Descarta las recomendaciones guardadas: el grafo cambió. Se vuelven a
+        calcular con BFS solo cuando se pide un perfil (recomendaciones_de)."""
         self.recomendaciones = {}
-        for id_usuario, usuario in self.usuarios_registrados.items():
-            vistas = {p["titulo"] for p in usuario.get_peliculasVistas()}
-            filtradas = datos[datos["genero"] == str(usuario.genero_preferido)]
-            recomendadas = [
-                p for p in filtradas.to_dict(orient="records") if p["titulo"] not in vistas
-            ]
-            self.recomendaciones[id_usuario] = recomendadas[:PELICULAS_A_RECOMENDAR]
+
+    def recomendaciones_de(self, id_usuario):
+        """Recomendaciones del usuario con BFS (recorridos.recomendar_bfs)."""
+        if id_usuario not in self.recomendaciones:
+            self.recomendaciones[id_usuario] = recomendar_bfs(
+                self.grafo_completo, id_usuario, PELICULAS_A_RECOMENDAR
+            )
+        return self.recomendaciones[id_usuario]
+
+    def recomendacion_a_json(self, recomendacion):
+        """Película recomendada + por qué: origen, puntaje y el camino del BFS
+        (usuario -> película en común -> otro usuario -> película)."""
+        explicacion = None
+        if recomendacion["origen"] == "bfs":
+            _, pelicula_comun, vecino, _ = recomendacion["camino"]
+            explicacion = {
+                "pelicula": pelicula_a_json(peliculas_por_id[self.grafo_completo.nodos[pelicula_comun]["id"]])["titulo"],
+                "usuario": self.grafo_completo.nodos[vecino]["nombre"],
+            }
+        return {
+            **pelicula_a_json(peliculas_por_id[recomendacion["movie_id"]]),
+            "origen": recomendacion["origen"],
+            "puntaje": recomendacion["puntaje"],
+            "usuarios_que_la_vieron": len(recomendacion["usuarios"]),
+            "explicacion": explicacion,
+        }
 
     # ------------------------- Serialización para la API -------------------------
 
@@ -238,14 +278,22 @@ class Project_Streaming:
             **self.usuario_a_json(id_usuario),
             # Las más recientes primero
             "peliculas_vistas": [pelicula_a_json(p) for p in reversed(usuario.get_peliculasVistas())],
-            "recomendadas": [pelicula_a_json(p) for p in self.recomendaciones[id_usuario]],
+            "recomendadas": [self.recomendacion_a_json(r) for r in self.recomendaciones_de(id_usuario)],
             "generos": dict(sorted(conteo.items(), key=lambda x: -x[1])),
-            "conexiones": [self.usuario_a_json(v) for v in self.grafo[id_usuario]],
+            "conexiones": [
+                {
+                    **self.usuario_a_json(v),
+                    "motivos": self.conexion(id_usuario, v)["motivos"],
+                    "peliculas_comunes": len(self.conexion(id_usuario, v)["comunes"]),
+                }
+                for v in self.grafo[id_usuario]
+            ],
         }
 
     def grafo_json(self, nodos_usuario=None):
-        """Grafo usuarios + géneros (igual que grafico_grafo). Si se pasa una lista
-        de nodos, devuelve solo ese sub-grafo (igual que mostrar_subGrafo)."""
+        """Vista de usuarios del grafo único para el frontend. Los nodos "g:<género>"
+        son agrupadores visuales, no vértices del grafo. Si se pasa una lista de
+        nodos, devuelve solo ese sub-grafo."""
         ids = list(self.usuarios_registrados) if nodos_usuario is None else nodos_usuario
         nodos, aristas, agregadas, generos = [], [], set(), set()
 
@@ -258,7 +306,11 @@ class Project_Streaming:
 
             for v in self.grafo[u]:
                 if v in ids and (u, v) not in agregadas:
-                    aristas.append({"source": str(u), "target": str(v), "tipo": "usuario"})
+                    arista = self.conexion(u, v)
+                    aristas.append({
+                        "source": str(u), "target": str(v), "tipo": ARISTA_USUARIO,
+                        "motivos": arista["motivos"], "comunes": len(arista["comunes"]),
+                    })
                     agregadas.add((u, v))
                     agregadas.add((v, u))
 
@@ -270,53 +322,26 @@ class Project_Streaming:
     def sub_grafo_json(self, id_usuario):
         return self.grafo_json([id_usuario] + self.grafo[id_usuario])
 
+    def kruskal(self):
+        """Red simplificada: bosque de expansión mínima (Kruskal + UFDS, mst.py)
+        de la vista de usuarios, junto con las componentes que da DFS para
+        comprobar que coinciden con el número de árboles."""
+        if self.grafo_completo is None:  # base vacía: aún no se generó nada
+            self.generar_grafo()
+        bosque = bosque_expansion_minima(self.grafo_completo)
+        componentes = componentes_usuarios(self.grafo_completo)
+        return {
+            "aristas": [{**a, "peso": round(a["peso"], 4)} for a in bosque["aristas"]],
+            "costo_total": round(bosque["costo_total"], 4),
+            "arboles": bosque["arboles"],
+            "aristas_grafo": bosque["aristas_grafo"],
+            "componentes_dfs": len(componentes["componentes"]),
+        }
+
     def recorrido(self, tipo, inicio, todo=False):
-        """Recorre el grafo de usuarios con BFS (cola) o DFS (pila), igual que
-        bfs()/dfs() de main.py pero sobre las listas de adyacencia.
-        Empieza en `inicio` y recorre su componente (los usuarios de su mismo
-        género). Con todo=True, al acabar sigue con el siguiente usuario sin
-        visitar hasta recorrer el grafo completo.
-        Devuelve cada paso con el nodo visitado, su padre en el árbol y el
-        estado de la cola o pila en ese momento."""
-        nodos = sorted(self.grafo)
-        visitado = {u: False for u in nodos}
-        pasos = []
-        componente = 0
-        orden_inicio = [inicio] + ([u for u in nodos if u != inicio] if todo else [])
-
-        for s in orden_inicio:
-            if visitado[s]:
-                continue
-            componente += 1
-            if tipo == "bfs":
-                cola = [s]
-                visitado[s] = True
-                padre = {s: None}
-                while cola:
-                    u = cola.pop(0)
-                    for v in sorted(self.grafo[u]):
-                        if not visitado[v]:
-                            visitado[v] = True
-                            padre[v] = u
-                            cola.append(v)
-                    pasos.append({"nodo": u, "padre": padre[u], "componente": componente, "estructura": list(cola)})
-            else:
-                # DFS con pila explícita: equivale al _dfs recursivo de main.py
-                visitado[s] = True
-                pila = [s]
-                pasos.append({"nodo": s, "padre": None, "componente": componente, "estructura": list(pila)})
-                while pila:
-                    u = pila[-1]
-                    siguiente = next((v for v in sorted(self.grafo[u]) if not visitado[v]), None)
-                    if siguiente is None:
-                        pila.pop()
-                        continue
-                    visitado[siguiente] = True
-                    pila.append(siguiente)
-                    pasos.append({"nodo": siguiente, "padre": u, "componente": componente, "estructura": list(pila)})
-
-        genero = self.usuarios_registrados[inicio].genero_preferido or SIN_GENERO
-        return {"tipo": tipo, "inicio": inicio, "genero": genero, "componentes": componente, "pasos": pasos}
+        """Pasos de un BFS o DFS por la vista de usuarios del grafo único, para
+        la animación paso a paso. Usa los algoritmos de recorridos.py."""
+        return recorrido_pasos(self.grafo_completo, tipo, inicio, todo)
 
     def matriz_adyacencia(self):
         nodos = sorted(self.grafo)

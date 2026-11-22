@@ -64,8 +64,8 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
   const ver = async (pelicula) => {
     const resultado = await api.ver(perfilId, pelicula.id)
     setDetalle(resultado.usuario)
-    // Si cambió su género favorito, cambian sus conexiones
-    if (resultado.nueva && resultado.genero_anterior !== resultado.usuario.genero_favorito) {
+    // Una película nueva puede cambiar sus conexiones (género o películas en común)
+    if (resultado.nueva) {
       api.subGrafo(perfilId).then(setSubGrafo)
     }
     onVisto(resultado, pelicula)
@@ -101,7 +101,14 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
             <h1>{destacada ? destacada.titulo : 'Aún no has visto ninguna película'}</h1>
             {destacada ? (
               <p className="hero-texto">
-                Porque tu género favorito es <strong>{detalle.genero_favorito}</strong>. Dirigida por {destacada.director}, con {destacada.actores}.
+                {/* Explicación del BFS: tú -> película en común -> otro usuario -> esta película */}
+                {destacada.origen === 'bfs' ? (
+                  <>Porque <strong>{destacada.explicacion.usuario}</strong> también vio <strong>{destacada.explicacion.pelicula}</strong>, como tú, y vio esta película
+                    {destacada.usuarios_que_la_vieron > 1 ? ` (igual que otros ${destacada.usuarios_que_la_vieron - 1} usuarios cercanos)` : ''}.</>
+                ) : (
+                  <>Una de las películas más vistas en GrafoFlix ({destacada.puntaje} vistas).</>
+                )}{' '}
+                Dirigida por {destacada.director}, con {destacada.actores}.
               </p>
             ) : (
               <p className="hero-texto">Empieza a ver películas para recibir recomendaciones.</p>

@@ -10,7 +10,7 @@ const VELOCIDADES = [
 
 const EXPLICACION = {
   bfs: 'BFS (búsqueda en anchura) usa una cola: saca al primer usuario de la cola, mete al final a todos sus vecinos sin visitar y repite. Avanza por niveles desde el inicio.',
-  dfs: 'DFS (búsqueda en profundidad) usa una pila: desde el usuario del tope baja al primer vecino sin visitar; cuando ya no quedan, lo saca de la pila (retrocede) y prueba otro camino.',
+  dfs: 'DFS (búsqueda en profundidad) es recursivo: visita un usuario y se llama a sí mismo con su primer vecino sin visitar; cuando ya no quedan vecinos, esa llamada termina (retrocede) y se prueba otro camino. La pila muestra las llamadas abiertas.',
 }
 
 /** Controles y estado paso a paso de un recorrido BFS/DFS. */
@@ -113,12 +113,12 @@ export default function RecorridoPanel({ tipo, datos, paso, setPaso, nombreDe, g
           <p className="gris">{grafoListo ? 'Pulsa reproducir o avanza paso a paso.' : 'Dibujando el grafo... el recorrido empieza en cuanto termine.'}</p>
         )}
         <p className="gris">
-          Recorre solo la figura de <b>{datos.genero}</b>: los {total} usuarios conectados con el inicial. Las demás figuras no se tocan.
+          Recorre la componente conexa del usuario inicial: los {total} usuarios alcanzables por conexiones entre usuarios.
         </p>
       </div>
 
       <div className="recorrido-bloque">
-        <h3>{esCola ? 'Cola (sale el de la izquierda)' : 'Pila (el tope es el de la derecha)'}</h3>
+        <h3>{esCola ? 'Cola (sale el de la izquierda)' : 'Pila de llamadas recursivas (el tope es el de la derecha)'}</h3>
         <div className="recorrido-fichas">
           {estructura.length === 0
             ? <span className="gris">vacía</span>

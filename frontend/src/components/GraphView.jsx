@@ -24,10 +24,14 @@ export default function GraphView({ perfilId, usuarios }) {
   // El grafo 3D ya terminó de dibujarse y se ve: recién ahí arranca el recorrido
   const [grafoListo, setGrafoListo] = useState(false)
 
+  // Red simplificada: bosque de expansión mínima (Kruskal) que devuelve el backend
+  const [bosque, setBosque] = useState(null)
+
   const esRecorrido = modo === 'bfs' || modo === 'dfs'
   const esSub = modo === 'sub'
+  const esKruskal = modo === 'kruskal'
 
-  // BFS y DFS recorren el grafo completo
+  // BFS, DFS y Kruskal trabajan sobre el grafo completo de usuarios
   useEffect(() => {
     const pedir = esSub ? api.subGrafo(subId) : api.grafo()
     pedir.then(setDatos)
@@ -39,23 +43,46 @@ export default function GraphView({ perfilId, usuarios }) {
     if (esRecorrido) api.recorrido(modo, inicioId).then(setPasos)
   }, [modo, inicioId])
 
-  // El recorrido se hace solo sobre la figura (género) del usuario inicial
-  const generoInicio = usuarios.find((u) => u.id === inicioId)?.genero_favorito ?? SIN_GENERO
+  useEffect(() => {
+    if (esKruskal) api.kruskal().then(setBosque)
+  }, [esKruskal])
 
-  // En BFS/DFS solo se muestra la figura que se recorre: su género y sus
-  // usuarios. Se copian los nodos para no tocar los del grafo completo.
+  // Usuarios que recorre el BFS/DFS (la componente conexa del usuario inicial
+  // en la vista de usuarios). Mientras carga, null: se muestran todos.
+  const miembros = useMemo(
+    () => (esRecorrido && pasos ? new Set(pasos.miembros.map(String)) : null),
+    [esRecorrido, pasos],
+  )
+
+  // En BFS/DFS se muestran los usuarios recorridos, las aristas entre ellos y
+  // los nodos de género de esos usuarios (agrupadores visuales, no vértices).
+  // Se copian los nodos para no tocar los del grafo completo.
   const datosVista = useMemo(() => {
-    if (!esRecorrido) return datos
-    const nodes = datos.nodes.filter((n) => n.genero === generoInicio).map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
+    if (esKruskal && bosque) {
+      // Se dejan todos los nodos y solo las aristas usuario-usuario del bosque
+      const delBosque = new Set(bosque.aristas.flatMap((a) => [`${a.source}-${a.target}`, `${a.target}-${a.source}`]))
+      const id = (x) => (typeof x === 'object' ? x.id : x)
+      const nodes = datos.nodes.map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
+      const links = datos.links
+        .filter((l) => l.tipo !== 'usuario' || delBosque.has(`${id(l.source)}-${id(l.target)}`))
+        .map((l) => ({ source: id(l.source), target: id(l.target), tipo: l.tipo }))
+      return { nodes, links }
+    }
+    if (!miembros) return datos
+    const usuariosVista = datos.nodes.filter((n) => n.tipo === 'usuario' && miembros.has(n.id))
+    const generosVista = new Set(usuariosVista.map((n) => n.genero))
+    const nodes = datos.nodes
+      .filter((n) => (n.tipo === 'usuario' ? miembros.has(n.id) : generosVista.has(n.genero)))
+      .map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
     const ids = new Set(nodes.map((n) => n.id))
     const id = (x) => (typeof x === 'object' ? x.id : x)
     const links = datos.links
       .filter((l) => ids.has(id(l.source)) && ids.has(id(l.target)))
       .map((l) => ({ source: id(l.source), target: id(l.target), tipo: l.tipo }))
     return { nodes, links }
-  }, [datos, esRecorrido, generoInicio])
+  }, [datos, miembros, esKruskal, bosque])
 
-  // Estado del grafo en el paso actual: figura recorrida, orden de visita,
+  // Estado del grafo en el paso actual: usuarios recorridos, orden de visita,
   // nodo actual y aristas del árbol (padre -> hijo) ya recorridas
   const estado = useMemo(() => {
     if (!esRecorrido) return null
@@ -66,8 +93,10 @@ export default function GraphView({ perfilId, usuarios }) {
       if (p.padre !== null) arbol.add(`${p.padre}-${p.nodo}`)
     })
     const actual = pasos && paso > 0 ? String(pasos.pasos[paso - 1].nodo) : null
-    return { genero: pasos?.genero ?? generoInicio, visitados, arbol, actual }
-  }, [esRecorrido, pasos, paso, generoInicio])
+    return { miembros: miembros ?? new Set(), visitados, arbol, actual }
+  }, [esRecorrido, pasos, paso, miembros])
+
+  const nombreInicio = usuarios.find((u) => u.id === inicioId)?.nombre ?? inicioId
 
   const generoDe = (u) => u.genero_favorito ?? SIN_GENERO
   const generos = useMemo(() => {
@@ -103,8 +132,10 @@ export default function GraphView({ perfilId, usuarios }) {
           <h1>Grafo de usuarios</h1>
           <p className="gris">
             {esRecorrido
-              ? `Recorrido ${modo.toUpperCase()} sobre la figura de ${generoInicio}: solo se muestra y se recorre esa figura. Haz clic en un usuario para empezar desde él, o elige en la lista a alguien de otro género para recorrer su figura.`
-              : 'Dos usuarios están conectados si comparten el mismo género favorito. Arrastra para girar y usa la rueda para acercar. Haz clic en una figura para agrandarla; con ella agrandada, clic en un usuario para ver su sub-grafo o clic fuera para volver.'}
+              ? `Recorrido ${modo.toUpperCase()} desde ${nombreInicio} por las conexiones entre usuarios (mismo género favorito o películas vistas en común). Se muestra la componente conexa del usuario inicial. Haz clic en un usuario o elígelo en la lista para empezar desde él.`
+              : esKruskal
+                ? 'Red simplificada con Kruskal: de todas las conexiones entre usuarios se dejan solo las del bosque de expansión mínima, con costo = distancia de Jaccard entre sus películas vistas (los más parecidos quedan unidos). Une a todos los usuarios de cada componente con el menor número de aristas.'
+                : 'Dos usuarios están conectados si comparten el mismo género favorito. Arrastra para girar y usa la rueda para acercar. Haz clic en una figura para agrandarla; con ella agrandada, clic en un usuario para ver su sub-grafo o clic fuera para volver.'}
           </p>
         </div>
         <div className="grafo-controles">
@@ -113,6 +144,7 @@ export default function GraphView({ perfilId, usuarios }) {
             <button className={modo === 'sub' ? 'activo' : ''} onClick={() => setModo('sub')}>Sub-grafo</button>
             <button className={modo === 'bfs' ? 'activo' : ''} onClick={() => setModo('bfs')}>BFS</button>
             <button className={modo === 'dfs' ? 'activo' : ''} onClick={() => setModo('dfs')}>DFS</button>
+            <button className={modo === 'kruskal' ? 'activo' : ''} onClick={() => setModo('kruskal')}>Red simplificada</button>
           </div>
           {/* Lista de todos los usuarios: en grafo completo o sub-grafo abre el
               sub-grafo del elegido; en BFS/DFS lo usa como nodo inicial */}
@@ -154,7 +186,8 @@ export default function GraphView({ perfilId, usuarios }) {
             onListo={setGrafoListo}
             reinicio={reinicio}
             enfocarGenero={modo === 'completo' ? generoFiltro : ''}
-            // El grafo completo se muestra un 50% más grande
+            // El grafo completo se muestra un 50% más grande (la red simplificada,
+            // más extendida, en tamaño normal para que entre entera)
             escala={modo === 'completo' ? 1.5 : 1}
           />
           {/* Mientras el grafo se acomoda (invisible) se muestra la esfera de carga */}
@@ -169,6 +202,13 @@ export default function GraphView({ perfilId, usuarios }) {
           <div className="grafo-stats">
             <span><b>{totalUsuarios}</b> usuarios</span>
             <span><b>{conexiones}</b> aristas entre usuarios</span>
+            {esKruskal && bosque && (
+              <>
+                <span>de <b>{bosque.aristas_grafo}</b> en el grafo</span>
+                <span><b>{bosque.arboles}</b> {bosque.arboles === 1 ? 'árbol' : 'árboles'} = <b>{bosque.componentes_dfs}</b> {bosque.componentes_dfs === 1 ? 'componente' : 'componentes'} (DFS)</span>
+                <span>costo total <b>{bosque.costo_total}</b></span>
+              </>
+            )}
           </div>
           {esRecorrido ? (
             <div className="leyenda">
