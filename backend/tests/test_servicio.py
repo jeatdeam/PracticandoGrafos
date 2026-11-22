@@ -87,6 +87,13 @@ class TestServicio(unittest.TestCase):
             if vistas:  # con vistas, el BFS da candidatas en esta población
                 self.assertEqual(recomendadas[0]["origen"], "bfs")
 
+    def test_kruskal_en_la_app(self):
+        k = self.proyecto.kruskal()
+        self.assertEqual(k["arboles"], k["componentes_dfs"])
+        self.assertEqual(len(k["aristas"]), 12 - k["arboles"])
+        self.assertEqual(k["aristas_grafo"], self.proyecto.resumen()["aristas"]["usuario"])
+        self.assertTrue(all(0 <= a["peso"] <= 1 for a in k["aristas"]))
+
     def test_recomendaciones_se_recalculan_al_ver(self):
         antes = self.proyecto.detalle_usuario(0)["recomendadas"]
         pelicula = antes[0]["id"]
@@ -112,6 +119,9 @@ class TestApi(unittest.TestCase):
                 self.assertEqual(cliente.get(ruta).status_code, 200, ruta)
             self.assertEqual(cliente.get("/api/resumen").json()["vertices"]["pelicula"], 1500)
             self.assertEqual(cliente.get("/api/recorrido/xyz/0").status_code, 400)
+            kruskal = cliente.get("/api/kruskal")
+            self.assertEqual(kruskal.status_code, 200)
+            self.assertEqual(kruskal.json()["arboles"], kruskal.json()["componentes_dfs"])
             for tipo in ("bfs", "dfs"):
                 respuesta = cliente.get(f"/api/recorrido/{tipo}/0?todo=true")
                 self.assertEqual(respuesta.status_code, 200)

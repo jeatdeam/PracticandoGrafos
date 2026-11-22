@@ -17,5 +17,6 @@ export const api = {
   grafo: () => pedir('/api/grafo'),
   subGrafo: (id) => pedir(`/api/grafo/${id}`),
   recorrido: (tipo, id) => pedir(`/api/recorrido/${tipo}/${id}`),
+  kruskal: () => pedir('/api/kruskal'),
   regenerar: (cantidad) => pedir(`/api/generar?cantidad=${cantidad}`, { method: 'POST' }),
 }

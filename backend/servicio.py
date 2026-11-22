@@ -14,7 +14,8 @@ CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
 from grafo import ARISTA_USUARIO, construir_grafo, nodo_usuario  # noqa: E402
-from recorridos import recomendar_bfs, recorrido_pasos  # noqa: E402
+from recorridos import componentes_usuarios, recomendar_bfs, recorrido_pasos  # noqa: E402
+from mst import bosque_expansion_minima  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
@@ -320,6 +321,22 @@ class Project_Streaming:
 
     def sub_grafo_json(self, id_usuario):
         return self.grafo_json([id_usuario] + self.grafo[id_usuario])
+
+    def kruskal(self):
+        """Red simplificada: bosque de expansión mínima (Kruskal + UFDS, mst.py)
+        de la vista de usuarios, junto con las componentes que da DFS para
+        comprobar que coinciden con el número de árboles."""
+        if self.grafo_completo is None:  # base vacía: aún no se generó nada
+            self.generar_grafo()
+        bosque = bosque_expansion_minima(self.grafo_completo)
+        componentes = componentes_usuarios(self.grafo_completo)
+        return {
+            "aristas": [{**a, "peso": round(a["peso"], 4)} for a in bosque["aristas"]],
+            "costo_total": round(bosque["costo_total"], 4),
+            "arboles": bosque["arboles"],
+            "aristas_grafo": bosque["aristas_grafo"],
+            "componentes_dfs": len(componentes["componentes"]),
+        }
 
     def recorrido(self, tipo, inicio, todo=False):
         """Pasos de un BFS o DFS por la vista de usuarios del grafo único, para

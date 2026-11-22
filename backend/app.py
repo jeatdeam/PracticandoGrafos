@@ -94,6 +94,12 @@ def matriz():
     return project_streaming.matriz_adyacencia()
 
 
+@app.get("/api/kruskal")
+def kruskal():
+    """Bosque de expansión mínima (Kruskal + UFDS) de la vista de usuarios."""
+    return project_streaming.kruskal()
+
+
 @app.get("/api/recorrido/{tipo}/{id_usuario}")
 def recorrido(tipo: str, id_usuario: int, todo: bool = False):
     if tipo not in ("bfs", "dfs"):
