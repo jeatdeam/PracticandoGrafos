@@ -18,9 +18,10 @@ import { colorAvatar, colorGenero } from '../colores'
  * reinicio: número que, al cambiar, devuelve la cámara a la vista inicial.
  * enfocarGenero: nombre de un género para agrandar su figura ('' = ninguna).
  * interactivo: permite zoom con la rueda y mover la vista (pestaña de grafos).
- * recorrido: { genero, visitados: Map(id -> orden), actual: id, arbol: Set("a-b") }
- *   para mostrar paso a paso un BFS/DFS sobre la figura de ese género. Con
- *   él, un clic en un usuario llama directamente a onNodeClick (nodo inicial).
+ * recorrido: { miembros: Set(ids), visitados: Map(id -> orden), actual: id, arbol: Set("a-b") }
+ *   para mostrar paso a paso un BFS/DFS sobre los usuarios recorridos
+ *   (miembros). Con él, un clic en un usuario llama directamente a
+ *   onNodeClick (nodo inicial).
  *   El lienzo siempre ocupa todo el contenedor (así nada se corta al girar);
  *   el grafo se desplaza hacia la zona libre moviendo la vista de la cámara.
  */
@@ -122,22 +123,22 @@ function conAlfa(hex, alfa) {
   return `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${alfa})`
 }
 
-// Colores de un nodo según el recorrido BFS/DFS (solo en la figura que se
-// recorre): sin visitar en gris, visitado con su color y su número de orden,
-// actual en amarillo. Las demás figuras quedan con sus colores normales.
+// Colores de un nodo según el recorrido BFS/DFS: los usuarios recorridos
+// (miembros) sin visitar en gris, visitados con su color y su número de
+// orden, el actual en amarillo. Los nodos de género (agrupadores visuales)
+// quedan tenues; los demás nodos conservan sus colores normales.
 function pintarRecorrido(n, rec) {
   const material = n.__nube?.material
   if (!material) return
   let color = n.__colorBase
   let opacidad = 1
   let etiqueta = n.__nombre
-  const enFigura = rec && n.genero === rec.genero
-  if (enFigura && n.tipo === 'usuario') {
+  if (rec && n.tipo === 'usuario' && rec.miembros.has(n.id)) {
     const orden = rec.visitados.get(n.id)
     if (n.id === rec.actual) color = '#ffd23f'
     else if (orden === undefined) { color = '#5a5a5a'; opacidad = 0.45 }
     if (orden !== undefined) etiqueta = `${orden}. ${n.__nombre}`
-  } else if (enFigura) {
+  } else if (rec && n.tipo === 'genero') {
     opacidad = 0.35
   }
   material.color.set(color)
@@ -335,8 +336,8 @@ export default function Grafo3D({ datos, destacadoId, onNodeClick, areaIzq = 0, 
         if (!n.__grupo) return
         const rec = recorridoRef.current
         const meta = rec
-          ? n.genero !== rec.genero ? 0.5
-            : n.tipo === 'genero' ? 1 : n.id === rec.actual ? 1.8 : rec.visitados.has(n.id) ? 1.1 : 0.85
+          ? n.tipo === 'genero' ? 1
+            : !rec.miembros.has(n.id) ? 0.5 : n.id === rec.actual ? 1.8 : rec.visitados.has(n.id) ? 1.1 : 0.85
           : foco ? (n.genero === foco.genero ? ESCALA_FOCO : 0.5) : 1
         const actual = n.__grupo.scale.x
         if (Math.abs(meta - actual) > 0.001) n.__grupo.scale.setScalar(actual + (meta - actual) * 0.1)

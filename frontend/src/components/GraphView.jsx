@@ -36,23 +36,32 @@ export default function GraphView({ perfilId, usuarios }) {
     if (esRecorrido) api.recorrido(modo, inicioId).then(setPasos)
   }, [modo, inicioId])
 
-  // El recorrido se hace solo sobre la figura (género) del usuario inicial
-  const generoInicio = usuarios.find((u) => u.id === inicioId)?.genero_favorito ?? SIN_GENERO
+  // Usuarios que recorre el BFS/DFS (la componente conexa del usuario inicial
+  // en la vista de usuarios). Mientras carga, null: se muestran todos.
+  const miembros = useMemo(
+    () => (esRecorrido && pasos ? new Set(pasos.miembros.map(String)) : null),
+    [esRecorrido, pasos],
+  )
 
-  // En BFS/DFS solo se muestra la figura que se recorre: su género y sus
-  // usuarios. Se copian los nodos para no tocar los del grafo completo.
+  // En BFS/DFS se muestran los usuarios recorridos, las aristas entre ellos y
+  // los nodos de género de esos usuarios (agrupadores visuales, no vértices).
+  // Se copian los nodos para no tocar los del grafo completo.
   const datosVista = useMemo(() => {
-    if (!esRecorrido) return datos
-    const nodes = datos.nodes.filter((n) => n.genero === generoInicio).map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
+    if (!miembros) return datos
+    const usuariosVista = datos.nodes.filter((n) => n.tipo === 'usuario' && miembros.has(n.id))
+    const generosVista = new Set(usuariosVista.map((n) => n.genero))
+    const nodes = datos.nodes
+      .filter((n) => (n.tipo === 'usuario' ? miembros.has(n.id) : generosVista.has(n.genero)))
+      .map((n) => ({ id: n.id, label: n.label, tipo: n.tipo, genero: n.genero }))
     const ids = new Set(nodes.map((n) => n.id))
     const id = (x) => (typeof x === 'object' ? x.id : x)
     const links = datos.links
       .filter((l) => ids.has(id(l.source)) && ids.has(id(l.target)))
       .map((l) => ({ source: id(l.source), target: id(l.target), tipo: l.tipo }))
     return { nodes, links }
-  }, [datos, esRecorrido, generoInicio])
+  }, [datos, miembros])
 
-  // Estado del grafo en el paso actual: figura recorrida, orden de visita,
+  // Estado del grafo en el paso actual: usuarios recorridos, orden de visita,
   // nodo actual y aristas del árbol (padre -> hijo) ya recorridas
   const estado = useMemo(() => {
     if (!esRecorrido) return null
@@ -63,8 +72,10 @@ export default function GraphView({ perfilId, usuarios }) {
       if (p.padre !== null) arbol.add(`${p.padre}-${p.nodo}`)
     })
     const actual = pasos && paso > 0 ? String(pasos.pasos[paso - 1].nodo) : null
-    return { genero: pasos?.genero ?? generoInicio, visitados, arbol, actual }
-  }, [esRecorrido, pasos, paso, generoInicio])
+    return { miembros: miembros ?? new Set(), visitados, arbol, actual }
+  }, [esRecorrido, pasos, paso, miembros])
+
+  const nombreInicio = usuarios.find((u) => u.id === inicioId)?.nombre ?? inicioId
 
   const generoDe = (u) => u.genero_favorito ?? SIN_GENERO
   const generos = useMemo(() => {
@@ -100,7 +111,7 @@ export default function GraphView({ perfilId, usuarios }) {
           <h1>Grafo de usuarios</h1>
           <p className="gris">
             {esRecorrido
-              ? `Recorrido ${modo.toUpperCase()} sobre la figura de ${generoInicio}: solo se muestra y se recorre esa figura. Haz clic en un usuario para empezar desde él, o elige en la lista a alguien de otro género para recorrer su figura.`
+              ? `Recorrido ${modo.toUpperCase()} desde ${nombreInicio} por las conexiones entre usuarios (mismo género favorito o películas vistas en común). Se muestra la componente conexa del usuario inicial. Haz clic en un usuario o elígelo en la lista para empezar desde él.`
               : 'Dos usuarios están conectados si comparten el mismo género favorito. Arrastra para girar y usa la rueda para acercar. Haz clic en una figura para agrandarla; con ella agrandada, clic en un usuario para ver su sub-grafo o clic fuera para volver.'}
           </p>
         </div>
