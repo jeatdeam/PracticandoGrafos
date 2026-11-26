@@ -7,7 +7,7 @@ import MovieRow from './MovieRow'
 import MovieModal from './MovieModal'
 import CargandoEsfera from './CargandoEsfera'
 
-export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onHistorial, onVisto }) {
+export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onHistorial, onConexiones, onVisto }) {
   const [detalle, setDetalle] = useState(null)
   const [subGrafo, setSubGrafo] = useState({ nodes: [], links: [] })
   const [seleccion, setSeleccion] = useState(null)
@@ -131,7 +131,9 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onH
                 <button type="button" onClick={onHistorial} title="Ver todas sus películas vistas por género">
                   <b>{detalle.cantidad_vistas}</b><span>vistas</span>
                 </button>
-                <div><b>{detalle.conexiones.length}</b><span>conexiones</span></div>
+                <button type="button" onClick={onConexiones} title="Ver sus conexiones como sub-grafo">
+                  <b>{detalle.conexiones.length}</b><span>conexiones</span>
+                </button>
               </div>
             </div>
             <div className="barras">

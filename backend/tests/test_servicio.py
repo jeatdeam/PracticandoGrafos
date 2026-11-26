@@ -110,6 +110,23 @@ class TestServicio(unittest.TestCase):
         self.assertEqual(despues["total"], sin_vistas["total"] - 1)
         self.assertNotIn(nueva, {p["id"] for p in despues["peliculas"]})
 
+    def test_busqueda_por_campo(self):
+        director = self.servicio.datos.iloc[0]["director"]
+        por_director = self.proyecto.catalogo(busqueda=director, campo="director", limite=2000)
+        self.assertGreater(por_director["total"], 0)
+        self.assertTrue(all(director.lower() in p["director"].lower() for p in por_director["peliculas"]))
+        self.assertEqual(self.proyecto.catalogo(busqueda=director, campo="titulo")["total"],
+                         self.servicio.datos["titulo"].str.lower().str.contains(director.lower(), regex=False).sum())
+
+    def test_conexiones_json(self):
+        for id_usuario in self.proyecto.usuarios_registrados:
+            g = self.proyecto.conexiones_json(id_usuario)
+            usuarios = {n["id"] for n in g["nodes"] if n["tipo"] == "usuario"}
+            self.assertEqual(usuarios, {str(id_usuario), *map(str, self.proyecto.grafo[id_usuario])})
+            for a in g["links"]:
+                if a["tipo"] == "usuario":
+                    self.assertIn(str(id_usuario), (a["source"], a["target"]))
+
     def test_recomendaciones_tres_del_favorito(self):
         for id_usuario, usuario in self.proyecto.usuarios_registrados.items():
             favorito = usuario.get_generoFav()

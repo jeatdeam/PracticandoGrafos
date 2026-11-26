@@ -29,6 +29,7 @@ CANTIDAD_PELICULAS_VISTAS = 100
 PELICULAS_A_RECOMENDAR = 5
 PELICULAS_POR_FILA = 10  # filas "Más de tu director", "Más de tu actor" y "Populares"
 SIN_GENERO = "sin peliculas vistas"
+CAMPOS_BUSQUEDA = ["titulo", "director", "actores"]
 
 # En Vercel solo /tmp es escribible (y no es persistente entre instancias)
 CARPETA_BD = "/tmp" if os.environ.get("VERCEL") else CARPETA
@@ -297,9 +298,10 @@ class Project_Streaming:
 
     # ------------------------- Serialización para la API -------------------------
 
-    def catalogo(self, genero=None, busqueda=None, desde=0, limite=40, sin_vistas_de=None):
+    def catalogo(self, genero=None, busqueda=None, desde=0, limite=40, sin_vistas_de=None, campo=None):
         """Página del catálogo. Con sin_vistas_de (id de usuario) se quitan las
-        películas que ese usuario ya vio (en Explorar pasan a "Ya las viste")."""
+        películas que ese usuario ya vio (en Explorar pasan a "Ya las viste").
+        campo limita la búsqueda a "titulo", "director" o "actores" (None = los tres)."""
         filtradas = datos
         if sin_vistas_de in self.usuarios_registrados:
             vistas = {p["movie_id"] for p in self.usuarios_registrados[sin_vistas_de].get_peliculasVistas()}
@@ -308,11 +310,11 @@ class Project_Streaming:
             filtradas = filtradas[filtradas["genero"] == genero]
         if busqueda:
             texto = busqueda.lower()
-            filtradas = filtradas[
-                filtradas["titulo"].str.lower().str.contains(texto, regex=False)
-                | filtradas["director"].str.lower().str.contains(texto, regex=False)
-                | filtradas["actores"].str.lower().str.contains(texto, regex=False)
-            ]
+            columnas = [campo] if campo in CAMPOS_BUSQUEDA else CAMPOS_BUSQUEDA
+            coincide = False
+            for columna in columnas:
+                coincide = coincide | filtradas[columna].str.lower().str.contains(texto, regex=False)
+            filtradas = filtradas[coincide]
         pagina = filtradas.iloc[desde: desde + limite].to_dict(orient="records")
         return {
             "total": len(filtradas),
@@ -353,13 +355,15 @@ class Project_Streaming:
             ],
         }
 
-    def grafo_json(self, nodos_usuario=None):
+    def grafo_json(self, nodos_usuario=None, vecinos=None):
         """Vista por género para el frontend: usuarios unidos solo si comparten
         género favorito, así cada género queda como una figura separada. Los
         nodos "g:<género>" son el centro de cada figura (agrupadores visuales, no
         vértices del grafo). Si se pasa una lista de nodos, devuelve solo ese
-        sub-grafo."""
+        sub-grafo. vecinos (id -> ids) elige qué aristas dibujar; por defecto,
+        las de mismo género."""
         ids = list(self.usuarios_registrados) if nodos_usuario is None else nodos_usuario
+        vecinos = self.vecinos_genero if vecinos is None else vecinos
         nodos, aristas, agregadas, generos = [], [], set(), set()
 
         for u in ids:
@@ -369,7 +373,7 @@ class Project_Streaming:
             nodos.append({"id": str(u), "label": f"{usuario.nombre}-{u}", "tipo": "usuario", "genero": genero})
             aristas.append({"source": f"g:{genero}", "target": str(u), "tipo": "genero"})
 
-            for v in self.vecinos_genero[u]:
+            for v in vecinos.get(u, []):
                 if v in ids and (u, v) not in agregadas:
                     arista = self.conexion(u, v)
                     aristas.append({
@@ -387,6 +391,13 @@ class Project_Streaming:
     def sub_grafo_json(self, id_usuario):
         """El usuario, su género favorito y sus colegas de ese mismo género."""
         return self.grafo_json([id_usuario] + self.vecinos_genero[id_usuario])
+
+    def conexiones_json(self, id_usuario):
+        """Sub-grafo de todas las conexiones del usuario en el grafo único (por
+        género o por películas en común): él en el centro, unido a cada vecino."""
+        conectados = self.grafo[id_usuario]
+        vecinos = {id_usuario: conectados, **{v: [id_usuario] for v in conectados}}
+        return self.grafo_json([id_usuario] + conectados, vecinos)
 
     def kruskal(self):
         """Red simplificada: bosque de expansión mínima (Kruskal + UFDS, mst.py)

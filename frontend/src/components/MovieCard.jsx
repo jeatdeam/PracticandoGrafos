@@ -25,7 +25,7 @@ export default function MovieCard({ pelicula, vista, borde = false, vertical = f
         className="portada-velo"
         style={{ background: `linear-gradient(180deg, ${color}40 0%, rgba(20,20,20,0.1) 35%, rgba(20,20,20,0.92) 100%)` }}
       />
-      <span className="tarjeta-genero">{pelicula.genero}</span>
+      <span className="tarjeta-genero" style={{ background: color }}>{pelicula.genero}</span>
       {vista && <span className="tarjeta-vista">✓ Vista</span>}
       <span className="tarjeta-titulo">{pelicula.titulo}</span>
       <span className="tarjeta-info">{pelicula.director} · {pelicula.tipo}</span>

@@ -7,6 +7,7 @@ import Browse from './components/Browse'
 import Catalog from './components/Catalog'
 import GraphView from './components/GraphView'
 import Historial from './components/Historial'
+import Conexiones from './components/Conexiones'
 import CargandoEsfera from './components/CargandoEsfera'
 
 export default function App() {
@@ -18,6 +19,8 @@ export default function App() {
   const [error, setError] = useState(null)
   const [version, setVersion] = useState(0)
   const [aviso, setAviso] = useState(null)
+  // Búsqueda de la barra de arriba (campo: '' = todo, 'titulo', 'director' o 'actores')
+  const [busqueda, setBusqueda] = useState({ texto: '', campo: '' })
   const temporizador = useRef(null)
 
   const cargarUsuarios = () =>
@@ -89,6 +92,8 @@ export default function App() {
         onPerfil={setPerfilId}
         onSalir={() => setPerfilId(null)}
         // El logo lleva al inicio: la pantalla donde se elige cuántos usuarios usar
+        busqueda={busqueda}
+        onBuscar={setBusqueda}
         onLogo={() => {
           setPerfilId(null)
           setVista('inicio')
@@ -103,12 +108,21 @@ export default function App() {
           onVerGrafo={() => setVista('grafo')}
           onExplorar={() => setVista('explorar')}
           onHistorial={() => setVista('historial')}
+          onConexiones={() => setVista('conexiones')}
           onVisto={alVer}
         />
       )}
-      {vista === 'explorar' && <Catalog key={`${perfilId}-${version}`} perfilId={perfilId} onVisto={alVer} />}
+      {vista === 'explorar' && <Catalog key={`${perfilId}-${version}`} perfilId={perfilId} busqueda={busqueda} onVisto={alVer} />}
       {vista === 'historial' && (
         <Historial key={`${perfilId}-${version}`} perfilId={perfilId} onVolver={() => setVista('inicio')} />
+      )}
+      {vista === 'conexiones' && (
+        <Conexiones
+          key={`${perfilId}-${version}`}
+          perfilId={perfilId}
+          onPerfil={setPerfilId}
+          onVolver={() => setVista('inicio')}
+        />
       )}
       {vista === 'grafo' && <GraphView key={`${version}-${perfilId}`} perfilId={perfilId} usuarios={usuarios} />}
       {aviso && <div className="aviso" role="status">{aviso}</div>}

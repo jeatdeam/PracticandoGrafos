@@ -69,8 +69,9 @@ def catalogo(
     desde: int = Query(0, ge=0),
     limite: int = Query(40, ge=1, le=200),
     sin_vistas_de: int | None = None,
+    campo: str | None = Query(None, pattern="^(titulo|director|actores)$"),
 ):
-    return project_streaming.catalogo(genero, q, desde, limite, sin_vistas_de)
+    return project_streaming.catalogo(genero, q, desde, limite, sin_vistas_de, campo)
 
 
 @app.get("/api/grafo")
@@ -82,6 +83,13 @@ def grafo():
 def sub_grafo(id_usuario: int):
     validar_usuario(id_usuario)
     return project_streaming.sub_grafo_json(id_usuario)
+
+
+@app.get("/api/conexiones/{id_usuario}")
+def conexiones(id_usuario: int):
+    """Sub-grafo con todas las conexiones del usuario (género o películas en común)."""
+    validar_usuario(id_usuario)
+    return project_streaming.conexiones_json(id_usuario)
 
 
 @app.get("/api/resumen")

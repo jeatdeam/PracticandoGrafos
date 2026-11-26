@@ -7,19 +7,22 @@ import MovieModal from './MovieModal'
 const POR_PAGINA = 40
 
 // Mismo filtro que el backend (título, director o actor) para la sección "Ya las viste"
-const coincide = (p, genero, busqueda) => {
+const coincide = (p, genero, busqueda, campo) => {
   if (genero && p.genero !== genero) return false
   if (!busqueda) return true
   const texto = busqueda.toLowerCase()
-  return [p.titulo, p.director, p.actores].some((campo) => String(campo).toLowerCase().includes(texto))
+  const valores = campo ? [p[campo]] : [p.titulo, p.director, p.actores]
+  return valores.some((valor) => String(valor).toLowerCase().includes(texto))
 }
 
-export default function Catalog({ perfilId, onVisto }) {
+const NOMBRE_CAMPO = { titulo: 'título', director: 'director', actores: 'actor' }
+
+// La búsqueda (texto y campo) viene de la barra de arriba
+export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto }) {
   // Historial del usuario, de la más reciente a la más antigua
   const [vistas, setVistas] = useState([])
   const [generos, setGeneros] = useState([])
   const [genero, setGenero] = useState('')
-  const [texto, setTexto] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [peliculas, setPeliculas] = useState([])
   const [total, setTotal] = useState(0)
@@ -37,20 +40,20 @@ export default function Catalog({ perfilId, onVisto }) {
 
   // El backend ya quita las que vio este usuario
   useEffect(() => {
-    api.peliculas({ genero, q: busqueda, limite: POR_PAGINA, sinVistasDe: perfilId }).then((r) => {
+    api.peliculas({ genero, q: busqueda, campo, limite: POR_PAGINA, sinVistasDe: perfilId }).then((r) => {
       setPeliculas(r.peliculas)
       setTotal(r.total)
       setGeneros(r.generos)
     })
-  }, [genero, busqueda, perfilId])
+  }, [genero, busqueda, campo, perfilId])
 
   const cargarMas = async () => {
-    const r = await api.peliculas({ genero, q: busqueda, desde: peliculas.length, limite: POR_PAGINA, sinVistasDe: perfilId })
+    const r = await api.peliculas({ genero, q: busqueda, campo, desde: peliculas.length, limite: POR_PAGINA, sinVistasDe: perfilId })
     setPeliculas((actuales) => [...actuales, ...r.peliculas.filter((p) => !actuales.some((a) => a.id === p.id))])
   }
 
   const idsVistas = useMemo(() => new Set(vistas.map((p) => p.id)), [vistas])
-  const vistasFiltradas = useMemo(() => vistas.filter((p) => coincide(p, genero, busqueda)), [vistas, genero, busqueda])
+  const vistasFiltradas = useMemo(() => vistas.filter((p) => coincide(p, genero, busqueda, campo)), [vistas, genero, busqueda, campo])
 
   const ver = async (pelicula) => {
     const resultado = await api.ver(perfilId, pelicula.id)
@@ -66,14 +69,11 @@ export default function Catalog({ perfilId, onVisto }) {
   return (
     <main className="catalogo">
       <div className="catalogo-cabecera">
-        <h1>Explorar películas</h1>
-        <input
-          className="buscador"
-          type="search"
-          placeholder="Buscar por título, director o actor"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-        />
+        <h1>
+          {busqueda
+            ? <>Resultados para «{busqueda}»{campo && <span className="gris"> en {NOMBRE_CAMPO[campo]}</span>}</>
+            : 'Explorar películas'}
+        </h1>
       </div>
 
       <div className="chips-generos">
