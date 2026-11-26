@@ -74,6 +74,16 @@ def catalogo(
     return project_streaming.catalogo(genero, q, desde, limite, sin_vistas_de, campo)
 
 
+@app.get("/api/sugerencias")
+def sugerencias(
+    q: str = "",
+    campo: str | None = Query(None, pattern="^(titulo|director|actores)$"),
+    usuario: int | None = None,
+):
+    """Lista desplegable de la búsqueda: directores (al menos 3), actores y películas."""
+    return project_streaming.sugerencias(q, campo, usuario)
+
+
 @app.get("/api/grafo")
 def grafo():
     return project_streaming.grafo_json()

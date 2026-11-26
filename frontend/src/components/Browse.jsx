@@ -4,6 +4,7 @@ import { colorGenero } from '../colores'
 import Avatar from './Avatar'
 import Grafo3D from './Grafo3D'
 import MovieRow from './MovieRow'
+import PerfilTarjeta from './PerfilTarjeta'
 import MovieModal from './MovieModal'
 import CargandoEsfera from './CargandoEsfera'
 
@@ -58,7 +59,6 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onH
   if (!detalle) return <div className="estado"><CargandoEsfera tamano={140} texto="Cargando perfil..." /></div>
 
   const destacada = detalle.recomendadas[0]
-  const maximo = Math.max(1, ...Object.values(detalle.generos))
   const esVista = (p) => detalle.peliculas_vistas.some((v) => v.id === p.id)
 
   const ver = async (pelicula) => {
@@ -120,32 +120,7 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onH
             </div>
           </div>
 
-          <aside className="perfil-tarjeta">
-            <div className="perfil-tarjeta-cabecera">
-              <Avatar usuario={detalle} tamano={56} />
-              <div>
-                <strong>{detalle.nombre} {detalle.apellido}</strong>
-                <span className="gris">{detalle.correo}</span>
-              </div>
-              <div className="estadisticas">
-                <button type="button" onClick={onHistorial} title="Ver todas sus películas vistas por género">
-                  <b>{detalle.cantidad_vistas}</b><span>vistas</span>
-                </button>
-                <button type="button" onClick={onConexiones} title="Ver sus conexiones como sub-grafo">
-                  <b>{detalle.conexiones.length}</b><span>conexiones</span>
-                </button>
-              </div>
-            </div>
-            <div className="barras">
-              {Object.entries(detalle.generos).map(([g, n]) => (
-                <div key={g} className="barra">
-                  <span>{g}</span>
-                  <div className="barra-pista"><div style={{ width: `${(n / maximo) * 100}%`, background: colorGenero(g) }} /></div>
-                  <span className="gris">{n}</span>
-                </div>
-              ))}
-            </div>
-          </aside>
+          <PerfilTarjeta detalle={detalle} onHistorial={onHistorial} onConexiones={onConexiones} />
         </div>
 
       </header>

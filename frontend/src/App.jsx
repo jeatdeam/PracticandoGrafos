@@ -112,7 +112,16 @@ export default function App() {
           onVisto={alVer}
         />
       )}
-      {vista === 'explorar' && <Catalog key={`${perfilId}-${version}`} perfilId={perfilId} busqueda={busqueda} onVisto={alVer} />}
+      {vista === 'explorar' && (
+        <Catalog
+          key={`${perfilId}-${version}`}
+          perfilId={perfilId}
+          busqueda={busqueda}
+          onVisto={alVer}
+          onHistorial={() => setVista('historial')}
+          onConexiones={() => setVista('conexiones')}
+        />
+      )}
       {vista === 'historial' && (
         <Historial key={`${perfilId}-${version}`} perfilId={perfilId} onVolver={() => setVista('inicio')} />
       )}

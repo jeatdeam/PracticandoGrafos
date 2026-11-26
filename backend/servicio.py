@@ -30,6 +30,7 @@ PELICULAS_A_RECOMENDAR = 5
 PELICULAS_POR_FILA = 10  # filas "Más de tu director", "Más de tu actor" y "Populares"
 SIN_GENERO = "sin peliculas vistas"
 CAMPOS_BUSQUEDA = ["titulo", "director", "actores"]
+MIN_DIRECTORES_SUGERIDOS = 3  # la lista de la búsqueda siempre muestra al menos 3 directores
 
 # En Vercel solo /tmp es escribible (y no es persistente entre instancias)
 CARPETA_BD = "/tmp" if os.environ.get("VERCEL") else CARPETA
@@ -321,6 +322,62 @@ class Project_Streaming:
             "generos": sorted(datos["genero"].unique().tolist()),
             "peliculas": [pelicula_a_json(p) for p in pagina],
         }
+
+    def sugerencias(self, texto="", campo=None, id_usuario=None, limite=8):
+        """Sugerencias para la lista desplegable de la búsqueda.
+
+        Cada una: {"texto", "campo", "recomendado"}. Se ordenan primero las que
+        empiezan con el texto, luego por cuántas películas de ese director/actor
+        vio el usuario y luego alfabéticamente. Si coinciden menos de 3
+        directores (y se busca en todo o en director), se completa con los
+        directores que más vio el usuario, marcados como recomendados.
+        """
+        texto = (texto or "").strip().lower()
+        usuario = self.usuarios_registrados.get(id_usuario)
+        vistas = usuario.get_peliculasVistas() if usuario else []
+
+        conteo = {"director": {}, "actores": {}}
+        for p in vistas:
+            conteo["director"][p["director"]] = conteo["director"].get(p["director"], 0) + 1
+            for actor in p["actores"].split(", "):
+                conteo["actores"][actor] = conteo["actores"].get(actor, 0) + 1
+
+        def ordenar(valores, cuenta):
+            return sorted(valores, key=lambda v: (not v.lower().startswith(texto), -cuenta.get(v, 0), v))
+
+        def coincidentes(columna):
+            if columna == "actores":
+                valores = set(datos["actores"].str.split(", ").explode())
+            elif columna == "titulo":
+                valores = {limpiar_titulo(t) for t in datos["titulo"]}
+            else:
+                valores = set(datos[columna])
+            return [v for v in valores if texto in v.lower()]
+
+        resultado = []
+        if campo in (None, "", "director"):
+            directores = ordenar(coincidentes("director"), conteo["director"])
+            tope = limite if campo == "director" else MIN_DIRECTORES_SUGERIDOS
+            resultado += [{"texto": d, "campo": "director", "recomendado": False} for d in directores[:tope]]
+            if len(resultado) < MIN_DIRECTORES_SUGERIDOS:
+                # Completa con los directores que más vio (o los más frecuentes del catálogo)
+                frecuentes = datos["director"].value_counts().to_dict()
+                elegidos = {s["texto"] for s in resultado}
+                resto = sorted(
+                    (d for d in frecuentes if d not in elegidos),
+                    key=lambda d: (-conteo["director"].get(d, 0), -frecuentes[d], d),
+                )
+                resultado += [
+                    {"texto": d, "campo": "director", "recomendado": True}
+                    for d in resto[: MIN_DIRECTORES_SUGERIDOS - len(resultado)]
+                ]
+        if texto and campo in (None, "", "actores"):
+            actores = ordenar(coincidentes("actores"), conteo["actores"])
+            resultado += [{"texto": a, "campo": "actores", "recomendado": False} for a in actores[: 3 if not campo else limite]]
+        if texto and campo in (None, "", "titulo"):
+            titulos = ordenar(coincidentes("titulo"), {})
+            resultado += [{"texto": t, "campo": "titulo", "recomendado": False} for t in titulos[: 3 if not campo else limite]]
+        return resultado
 
     def usuario_a_json(self, id_usuario):
         usuario = self.usuarios_registrados[id_usuario]

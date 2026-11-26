@@ -205,7 +205,7 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .barras { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 20px; }
 .barra { display: grid; grid-template-columns: 74px 1fr 24px; align-items: center; gap: 8px; font-size: 12px; }
 .barra-pista { height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; }
-.barra-pista div { height: 100%; border-radius: 3px; }
+.barra-pista div { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); animation: crecer 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: left; }
 
 /* ---------------- Filas de películas ---------------- */
 .filas { padding: 0 0 60px; margin-top: -30px; position: relative; }
@@ -295,6 +295,7 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .modal-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .chip { border: 1px solid #555; border-radius: 3px; padding: 1px 8px; font-size: 12px; color: #ccc; }
 @keyframes aparecer { from { opacity: 0; } }
+.modal { animation: modal-entrar 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 /* ---------------- Grafo ---------------- */
 .grafo-pagina { padding: 90px 4% 30px; height: 100vh; display: flex; flex-direction: column; gap: 18px; }
@@ -482,11 +483,55 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 
 /* ---------------- Búsqueda de la barra ---------------- */
 .navbar-der { display: flex; align-items: center; gap: 18px; }
-.buscador-nav { display: flex; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 4px; padding: 4px 6px; transition: background 0.2s, border-color 0.2s; }
+.buscador-nav { position: relative; display: flex; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 4px; padding: 4px 6px; transition: background 0.2s, border-color 0.2s; }
 .buscador-nav.abierto { background: rgba(0,0,0,0.75); border-color: #ddd; }
 .buscador-icono { color: #fff; display: grid; place-items: center; padding: 2px; }
 .buscador-nav input { background: transparent; border: 0; outline: none; color: #fff; font-size: 14px; width: 220px; }
 .buscador-nav select { background: #1f1f1f; color: #ddd; border: 1px solid #444; border-radius: 3px; font-size: 12px; padding: 3px 4px; }
+
+.sugerencias {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 300px;
+  list-style: none;
+  padding: 6px 0;
+  margin: 0;
+  background: rgba(16,16,16,0.97);
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+  max-height: 60vh;
+  overflow-y: auto;
+  animation: bajar 0.18s ease-out;
+}
+.sugerencias li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #ddd;
+  animation: aparecer-izq 0.22s ease-out both;
+  transition: background 0.12s;
+}
+.sugerencias li.marcada { background: #2c2c2c; color: #fff; }
+.sugerencias li b { color: #fff; font-weight: 800; }
+.sugerencia-tipo { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: #333; color: #ccc; flex-shrink: 0; width: 64px; text-align: center; }
+.sugerencia-tipo.tipo-director { background: #e50914; color: #fff; }
+.sugerencia-tipo.tipo-actores { background: #1fb6ff; color: #000; }
+.sugerencia-texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sugerencia-reco { font-size: 11px; color: #f5a524; flex-shrink: 0; }
+
+/* Tarjeta del usuario dentro de "Ya las viste" */
+.catalogo-vistas-cuerpo { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+.catalogo-perfil { position: sticky; top: 84px; }
+@media (max-width: 900px) {
+  .catalogo-vistas-cuerpo { grid-template-columns: 1fr; }
+  .catalogo-perfil { position: static; }
+}
 
 /* ---------------- Conexiones (sub-grafo) ---------------- */
 .conexiones-lista { width: 300px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
@@ -632,3 +677,37 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .cargando-esfera canvas { display: block; }
 .grafo-cargando { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 2; }
 .recorrido-panel .cargando-esfera { width: 100%; padding: 24px 0; }
+
+/* ---------------- Transiciones de aparición ---------------- */
+@keyframes aparecer-subir { from { opacity: 0; transform: translateY(14px); } }
+@keyframes aparecer-izq { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes bajar { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes modal-entrar { from { opacity: 0; transform: translateY(18px) scale(0.97); } }
+@keyframes crecer { from { transform: scaleX(0); } }
+@keyframes latido { 0% { transform: scale(1.35); color: #46d369; } 100% { transform: scale(1); } }
+
+/* Cada pantalla entra suavemente al cambiar de vista (solo opacidad: un
+   transform en <main> movería el modal, que es position: fixed) */
+main, .estado { animation: aparecer 0.4s ease-out; }
+.hero-contenido, .perfil-tarjeta { animation: aparecer-subir 0.5s ease-out both; }
+.perfil-tarjeta { animation-delay: 0.08s; }
+/* Filas una tras otra */
+.fila, .historial-genero, .catalogo-vistas { animation: aparecer-subir 0.5s ease-out both; }
+.filas > .fila:nth-child(1) { animation-delay: 0.05s; }
+.filas > .fila:nth-child(2) { animation-delay: 0.1s; }
+.filas > .fila:nth-child(3) { animation-delay: 0.15s; }
+.filas > .fila:nth-child(4) { animation-delay: 0.2s; }
+.filas > .fila:nth-child(n+5) { animation-delay: 0.25s; }
+/* Tarjetas: solo opacidad para no pelear con el zoom del hover */
+.tarjeta { animation: aparecer 0.45s ease-out both; }
+.chips-generos > * { animation: aparecer-subir 0.35s ease-out both; }
+.conexion-item { animation: aparecer-izq 0.3s ease-out both; }
+.menu-perfil { animation: bajar 0.18s ease-out; }
+.buscador-nav input, .buscador-nav select { animation: aparecer-izq 0.2s ease-out; }
+.perfil, .perfil-chico { animation: aparecer-subir 0.4s ease-out both; }
+.numero-cambia { display: inline-block; animation: latido 0.5s ease-out; }
+.grafo-stats, .leyenda, .grafo-restablecer { animation: aparecer 0.5s ease-out both; animation-delay: 0.2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+}

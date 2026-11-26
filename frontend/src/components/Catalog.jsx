@@ -3,6 +3,7 @@ import { api } from '../api'
 import { colorGenero } from '../colores'
 import MovieCard from './MovieCard'
 import MovieModal from './MovieModal'
+import PerfilTarjeta from './PerfilTarjeta'
 
 const POR_PAGINA = 40
 
@@ -18,9 +19,10 @@ const coincide = (p, genero, busqueda, campo) => {
 const NOMBRE_CAMPO = { titulo: 'título', director: 'director', actores: 'actor' }
 
 // La búsqueda (texto y campo) viene de la barra de arriba
-export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto }) {
-  // Historial del usuario, de la más reciente a la más antigua
-  const [vistas, setVistas] = useState([])
+export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto, onHistorial, onConexiones }) {
+  // Detalle del usuario (su tarjeta) e historial, de la más reciente a la más antigua
+  const [detalle, setDetalle] = useState(null)
+  const vistas = detalle?.peliculas_vistas ?? []
   const [generos, setGeneros] = useState([])
   const [genero, setGenero] = useState('')
   const [busqueda, setBusqueda] = useState('')
@@ -29,7 +31,7 @@ export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto 
   const [seleccion, setSeleccion] = useState(null)
 
   useEffect(() => {
-    api.usuario(perfilId).then((u) => setVistas(u.peliculas_vistas))
+    api.usuario(perfilId).then(setDetalle)
   }, [perfilId])
 
   // Espera a que el usuario deje de escribir antes de buscar
@@ -58,7 +60,7 @@ export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto 
   const ver = async (pelicula) => {
     const resultado = await api.ver(perfilId, pelicula.id)
     // Queda en su historial: sale de Explorar y pasa a "Ya las viste"
-    setVistas(resultado.usuario.peliculas_vistas)
+    setDetalle(resultado.usuario)
     if (resultado.nueva) {
       setPeliculas((actuales) => actuales.filter((p) => p.id !== pelicula.id))
       setTotal((t) => Math.max(0, t - 1))
@@ -108,13 +110,23 @@ export default function Catalog({ perfilId, busqueda: { texto, campo }, onVisto 
         </div>
       )}
 
-      {vistasFiltradas.length > 0 && (
+      {detalle && (
         <section className="catalogo-vistas">
           <h2>Ya las viste <span className="fila-cantidad">{vistasFiltradas.length}</span></h2>
-          <div className="catalogo-grid">
-            {vistasFiltradas.map((p) => (
-              <MovieCard key={p.id} pelicula={p} vista onClick={setSeleccion} />
-            ))}
+          <div className="catalogo-vistas-cuerpo">
+            {/* Misma tarjeta que en el perfil: se actualiza al ver una película */}
+            <PerfilTarjeta detalle={detalle} onHistorial={onHistorial} onConexiones={onConexiones} className="catalogo-perfil" />
+            {vistasFiltradas.length > 0 ? (
+              <div className="catalogo-grid">
+                {vistasFiltradas.map((p) => (
+                  <MovieCard key={p.id} pelicula={p} vista onClick={setSeleccion} />
+                ))}
+              </div>
+            ) : (
+              <p className="gris">
+                {vistas.length ? 'Ninguna de las que viste coincide con la búsqueda.' : 'Todavía no viste ninguna película: pulsa una y dale a ▶ Ver.'}
+              </p>
+            )}
           </div>
         </section>
       )}

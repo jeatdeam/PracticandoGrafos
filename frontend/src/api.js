@@ -16,6 +16,12 @@ export const api = {
     if (q && campo) params.set('campo', campo)
     return pedir(`/api/peliculas?${params}`)
   },
+  sugerencias: ({ q, campo, usuario }) => {
+    const params = new URLSearchParams({ q })
+    if (campo) params.set('campo', campo)
+    if (usuario !== undefined && usuario !== null) params.set('usuario', usuario)
+    return pedir(`/api/sugerencias?${params}`)
+  },
   grafo: () => pedir('/api/grafo'),
   subGrafo: (id) => pedir(`/api/grafo/${id}`),
   conexiones: (id) => pedir(`/api/conexiones/${id}`),

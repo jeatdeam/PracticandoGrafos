@@ -118,6 +118,18 @@ class TestServicio(unittest.TestCase):
         self.assertEqual(self.proyecto.catalogo(busqueda=director, campo="titulo")["total"],
                          self.servicio.datos["titulo"].str.lower().str.contains(director.lower(), regex=False).sum())
 
+    def test_sugerencias_al_menos_tres_directores(self):
+        for texto in ("", "a", "ma", "zzzz"):
+            directores = [s for s in self.proyecto.sugerencias(texto, None, 0) if s["campo"] == "director"]
+            self.assertGreaterEqual(len(directores), 3)
+            self.assertEqual(len({s["texto"] for s in directores}), len(directores))
+        director = self.servicio.datos.iloc[0]["director"]
+        primera = self.proyecto.sugerencias(director[:4], "director", 0)[0]
+        self.assertEqual((primera["campo"], primera["recomendado"]), ("director", False))
+        self.assertTrue(primera["texto"].lower().startswith(director[:4].lower()))
+        actores = self.proyecto.sugerencias("a", "actores", 0)
+        self.assertTrue(actores and all(s["campo"] == "actores" for s in actores))
+
     def test_conexiones_json(self):
         for id_usuario in self.proyecto.usuarios_registrados:
             g = self.proyecto.conexiones_json(id_usuario)
