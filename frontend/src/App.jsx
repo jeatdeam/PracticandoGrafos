@@ -6,6 +6,7 @@ import Navbar from './components/Navbar'
 import Browse from './components/Browse'
 import Catalog from './components/Catalog'
 import GraphView from './components/GraphView'
+import Historial from './components/Historial'
 import CargandoEsfera from './components/CargandoEsfera'
 
 export default function App() {
@@ -101,10 +102,14 @@ export default function App() {
           onPerfil={setPerfilId}
           onVerGrafo={() => setVista('grafo')}
           onExplorar={() => setVista('explorar')}
+          onHistorial={() => setVista('historial')}
           onVisto={alVer}
         />
       )}
       {vista === 'explorar' && <Catalog key={`${perfilId}-${version}`} perfilId={perfilId} onVisto={alVer} />}
+      {vista === 'historial' && (
+        <Historial key={`${perfilId}-${version}`} perfilId={perfilId} onVolver={() => setVista('inicio')} />
+      )}
       {vista === 'grafo' && <GraphView key={`${version}-${perfilId}`} perfilId={perfilId} usuarios={usuarios} />}
       {aviso && <div className="aviso" role="status">{aviso}</div>}
     </>

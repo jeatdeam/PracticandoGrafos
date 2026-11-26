@@ -68,8 +68,9 @@ def catalogo(
     q: str | None = None,
     desde: int = Query(0, ge=0),
     limite: int = Query(40, ge=1, le=200),
+    sin_vistas_de: int | None = None,
 ):
-    return project_streaming.catalogo(genero, q, desde, limite)
+    return project_streaming.catalogo(genero, q, desde, limite, sin_vistas_de)
 
 
 @app.get("/api/grafo")

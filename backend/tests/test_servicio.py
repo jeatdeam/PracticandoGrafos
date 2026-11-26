@@ -98,6 +98,26 @@ class TestServicio(unittest.TestCase):
         self.assertTrue(self.proyecto.ver_pelicula(0, nueva)["nueva"])
         self.assertEqual(self.proyecto.resumen()["aristas"]["vista"], antes + 1)
 
+    def test_catalogo_sin_vistas_del_usuario(self):
+        total = self.proyecto.catalogo(limite=1)["total"]
+        vistas = {p["movie_id"] for p in self.proyecto.usuarios_registrados[0].get_peliculasVistas()}
+        sin_vistas = self.proyecto.catalogo(limite=2000, sin_vistas_de=0)
+        self.assertEqual(sin_vistas["total"], total - len(vistas))
+        self.assertFalse({p["id"] for p in sin_vistas["peliculas"]} & vistas)
+        nueva = sin_vistas["peliculas"][0]["id"]
+        self.proyecto.ver_pelicula(0, nueva)  # al verla sale de Explorar
+        despues = self.proyecto.catalogo(limite=2000, sin_vistas_de=0)
+        self.assertEqual(despues["total"], sin_vistas["total"] - 1)
+        self.assertNotIn(nueva, {p["id"] for p in despues["peliculas"]})
+
+    def test_recomendaciones_tres_del_favorito(self):
+        for id_usuario, usuario in self.proyecto.usuarios_registrados.items():
+            favorito = usuario.get_generoFav()
+            if favorito is None:
+                continue
+            generos = [r["genero"] for r in self.proyecto.detalle_usuario(id_usuario)["recomendadas"]]
+            self.assertEqual(generos[:3], [favorito] * 3)
+
     def test_recomendaciones_por_bfs(self):
         for id_usuario, usuario in self.proyecto.usuarios_registrados.items():
             detalle = self.proyecto.detalle_usuario(id_usuario)

@@ -7,7 +7,7 @@ import MovieRow from './MovieRow'
 import MovieModal from './MovieModal'
 import CargandoEsfera from './CargandoEsfera'
 
-export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onVisto }) {
+export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onHistorial, onVisto }) {
   const [detalle, setDetalle] = useState(null)
   const [subGrafo, setSubGrafo] = useState({ nodes: [], links: [] })
   const [seleccion, setSeleccion] = useState(null)
@@ -128,7 +128,9 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
                 <span className="gris">{detalle.correo}</span>
               </div>
               <div className="estadisticas">
-                <div><b>{detalle.cantidad_vistas}</b><span>vistas</span></div>
+                <button type="button" onClick={onHistorial} title="Ver todas sus películas vistas por género">
+                  <b>{detalle.cantidad_vistas}</b><span>vistas</span>
+                </button>
                 <div><b>{detalle.conexiones.length}</b><span>conexiones</span></div>
               </div>
             </div>
@@ -147,7 +149,7 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
       </header>
 
       <div className="filas">
-        <MovieRow titulo="Recomendadas para ti" peliculas={detalle.recomendadas} onClick={setSeleccion} />
+        <MovieRow titulo="Recomendadas para ti" peliculas={detalle.recomendadas} bordeGenero onClick={setSeleccion} />
         {detalle.por_director?.nombre && (
           <MovieRow
             titulo={`Más de ${detalle.por_director.nombre}, que dirigió ${detalle.por_director.vistas} de tus películas`}
@@ -162,7 +164,7 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
             onClick={setSeleccion}
           />
         )}
-        <MovieRow titulo="Populares en GrafoFlix" peliculas={detalle.populares ?? []} onClick={setSeleccion} />
+        <MovieRow titulo="Populares en GrafoFlix" peliculas={detalle.populares ?? []} vertical onClick={setSeleccion} />
         <MovieRow titulo="Vistas recientemente" peliculas={detalle.peliculas_vistas} vistas onClick={setSeleccion} />
         {porGenero.map(([g, lista]) => (
           <MovieRow key={g} titulo={`Viste en ${g}`} peliculas={lista} vistas onClick={setSeleccion} />

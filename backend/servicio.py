@@ -16,7 +16,7 @@ from usuario import Usuario  # noqa: E402
 from grafo import ARISTA_USUARIO, MOTIVO_GENERO, TIPO_USUARIO, Grafo, construir_grafo, nodo_usuario  # noqa: E402
 from recorridos import (  # noqa: E402
     componentes_usuarios,
-    recomendar_bfs,
+    recomendar_por_generos,
     recomendar_populares,
     recomendar_por_atributo,
     recorrido_pasos,
@@ -243,9 +243,11 @@ class Project_Streaming:
         self.filas_extra = {}
 
     def recomendaciones_de(self, id_usuario):
-        """Recomendaciones del usuario con BFS (recorridos.recomendar_bfs)."""
+        """Recomendaciones del usuario con BFS, repartidas por sus géneros:
+        3 del favorito y el resto de los que más vio después
+        (recorridos.recomendar_por_generos)."""
         if id_usuario not in self.recomendaciones:
-            self.recomendaciones[id_usuario] = recomendar_bfs(
+            self.recomendaciones[id_usuario] = recomendar_por_generos(
                 self.grafo_completo, id_usuario, PELICULAS_A_RECOMENDAR
             )
         return self.recomendaciones[id_usuario]
@@ -295,8 +297,13 @@ class Project_Streaming:
 
     # ------------------------- Serialización para la API -------------------------
 
-    def catalogo(self, genero=None, busqueda=None, desde=0, limite=40):
+    def catalogo(self, genero=None, busqueda=None, desde=0, limite=40, sin_vistas_de=None):
+        """Página del catálogo. Con sin_vistas_de (id de usuario) se quitan las
+        películas que ese usuario ya vio (en Explorar pasan a "Ya las viste")."""
         filtradas = datos
+        if sin_vistas_de in self.usuarios_registrados:
+            vistas = {p["movie_id"] for p in self.usuarios_registrados[sin_vistas_de].get_peliculasVistas()}
+            filtradas = filtradas[~filtradas["movie_id"].isin(vistas)]
         if genero:
             filtradas = filtradas[filtradas["genero"] == genero]
         if busqueda:

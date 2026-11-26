@@ -8,8 +8,9 @@ export const api = {
   usuarios: () => pedir('/api/usuarios'),
   usuario: (id) => pedir(`/api/usuarios/${id}`),
   ver: (idUsuario, idPelicula) => pedir(`/api/usuarios/${idUsuario}/ver/${idPelicula}`, { method: 'POST' }),
-  peliculas: ({ genero, q, desde = 0, limite = 40 }) => {
+  peliculas: ({ genero, q, desde = 0, limite = 40, sinVistasDe }) => {
     const params = new URLSearchParams({ desde, limite })
+    if (sinVistasDe !== undefined && sinVistasDe !== null) params.set('sin_vistas_de', sinVistasDe)
     if (genero) params.set('genero', genero)
     if (q) params.set('q', q)
     return pedir(`/api/peliculas?${params}`)

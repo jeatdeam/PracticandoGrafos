@@ -36,7 +36,9 @@ from recorridos import (  # noqa: E402
     candidatos_bfs,
     componentes_usuarios,
     dfs,
+    ranking_generos,
     recomendar_bfs,
+    recomendar_por_generos,
     reconstruir_camino,
     recorrido_pasos,
     resumen_componentes,
@@ -219,6 +221,49 @@ class TestRecomendarBFS(unittest.TestCase):
         self.assertFalse(set(ids) & {"M3", "M5"})
         origenes = [r["origen"] for r in recs]
         self.assertEqual(origenes, sorted(origenes, key=lambda o: o != "bfs"))  # primero las del BFS
+
+
+class TestRecomendarPorGeneros(unittest.TestCase):
+    """Usuario 0: favorito Aventura (4 vistas), luego Terror (3) y Comedia (2).
+    Cada género tiene 4 películas más que no vio; u1 vio todo el catálogo,
+    así que todas son candidatas del BFS."""
+    GENEROS = {"Aventura": 8, "Terror": 7, "Comedia": 6, "Drama": 5}
+
+    def grafo(self, vistas_0=None):
+        catalogo = [{"movie_id": f"{g[0]}{i}", "genero": g} for g, k in self.GENEROS.items() for i in range(k)]
+        if vistas_0 is None:
+            vistas_0 = [f"A{i}" for i in range(4)] + [f"T{i}" for i in range(3)] + [f"C{i}" for i in range(2)] + ["D0"]
+        return construir_k1(catalogo, {
+            0: usuario("Aventura", vistas_0),
+            1: usuario("Aventura", [p["movie_id"] for p in catalogo]),
+        })
+
+    def generos(self, g, recs):
+        return [g.nodos[P(r["movie_id"])]["genero"] for r in recs]
+
+    def test_ranking(self):
+        self.assertEqual(ranking_generos(self.grafo(), 0), ["Aventura", "Terror", "Comedia", "Drama"])
+
+    def test_tres_del_favorito_y_luego_los_siguientes(self):
+        g = self.grafo()
+        recs = recomendar_por_generos(g, 0, n=5)
+        self.assertEqual(self.generos(g, recs), ["Aventura"] * 3 + ["Terror", "Comedia"])
+        self.assertTrue(all(r["origen"] == "bfs" for r in recs))
+        self.assertEqual(len({r["movie_id"] for r in recs}), 5)
+
+    def test_mas_huecos_que_generos_vuelve_al_segundo(self):
+        g = self.grafo()
+        recs = recomendar_por_generos(g, 0, n=8)
+        self.assertEqual(self.generos(g, recs), ["Aventura"] * 3 + ["Terror", "Comedia", "Drama", "Terror", "Comedia"])
+
+    def test_un_solo_genero(self):
+        g = self.grafo(vistas_0=["A0", "A1"])
+        self.assertEqual(self.generos(g, recomendar_por_generos(g, 0, n=5)), ["Aventura"] * 5)
+
+    def test_sin_vistas_usa_popularidad(self):
+        recs = recomendar_por_generos(self.grafo(vistas_0=[]), 0, n=5)
+        self.assertEqual(len(recs), 5)
+        self.assertTrue(all(r["origen"] == "popularidad" for r in recs))
 
 
 class TestDFS(unittest.TestCase):

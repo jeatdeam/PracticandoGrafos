@@ -1,17 +1,21 @@
 import { colorGenero } from '../colores'
 import { imagenPelicula, ocultarSiFalla } from '../imagenes'
 
-export default function MovieCard({ pelicula, vista, onClick }) {
+export default function MovieCard({ pelicula, vista, borde = false, vertical = false, onClick }) {
   const color = colorGenero(pelicula.genero)
   return (
     <button
-      className="tarjeta"
+      className={['tarjeta', borde && 'tarjeta-borde', vertical && 'tarjeta-vertical'].filter(Boolean).join(' ')}
       onClick={() => onClick(pelicula)}
-      style={{ background: `linear-gradient(160deg, ${color} 0%, #141414 85%)` }}
+      style={{
+        background: `linear-gradient(160deg, ${color} 0%, #141414 85%)`,
+        // Borde del color del género (fila "Recomendadas para ti")
+        ...(borde && { borderColor: color }),
+      }}
     >
       <img
         className="portada-imagen"
-        src={imagenPelicula(pelicula.id, 440, 248)}
+        src={vertical ? imagenPelicula(pelicula.id, 320, 480) : imagenPelicula(pelicula.id, 440, 248)}
         alt=""
         loading="lazy"
         decoding="async"

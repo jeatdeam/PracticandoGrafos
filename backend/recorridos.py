@@ -12,7 +12,8 @@ adyacencia (diccionario nodo -> vecinos) y a ids de nodo "U:<id>" / "P:<id>":
 Hay una sola implementación de cada uno; los usos se distinguen por el tipo
 de arista que se recorre:
     - animación de /api/recorrido: BFS o DFS por aristas usuario-usuario
-    - recomendaciones (recomendar_bfs): BFS por aristas "vista" hasta el nivel 3
+    - recomendaciones (recomendar_bfs, recomendar_por_generos): BFS por
+      aristas "vista" hasta el nivel 3
     - componentes conexas: DFS por aristas usuario-usuario
 """
 from grafo import ARISTA_USUARIO, ARISTA_VISTA, TIPO_PELICULA, TIPO_USUARIO, nodo_pelicula, nodo_usuario
@@ -122,17 +123,13 @@ def candidatos_bfs(grafo, id_usuario):
     return candidatas
 
 
-def recomendar_bfs(grafo, id_usuario, n=5):
-    """Las n mejores recomendaciones para un usuario a partir del BFS.
+def puntuar_bfs(grafo, id_usuario):
+    """Todas las candidatas del BFS con su puntaje, de mejor a peor.
 
     Puntaje de una candidata = suma, sobre los usuarios del nivel 2 que la
     vieron, de cuántas películas tienen en común con el usuario (un vecino
     más parecido en lo que vio pesa más). Desempate: primero las del género
     favorito del usuario (el género solo ordena) y luego por id.
-
-    Si el BFS da menos de n candidatas (por ejemplo, un usuario sin vistas),
-    se completa con las películas más vistas que el usuario no vio, marcadas
-    con origen "popularidad".
 
     Cada recomendación: {movie_id, origen, puntaje, usuarios, camino}.
     Tiempo: el del BFS, más O(L * m) para contar películas en común con los
@@ -164,11 +161,88 @@ def recomendar_bfs(grafo, id_usuario, n=5):
         return grafo.nodos[nodo_pelicula(r["movie_id"])]["genero"] != genero_u
 
     recomendaciones.sort(key=lambda r: (-r["puntaje"], es_otro_genero(r), r["movie_id"]))
-    recomendaciones = recomendaciones[:n]
+    return recomendaciones
+
+
+def recomendar_bfs(grafo, id_usuario, n=5):
+    """Las n mejores recomendaciones para un usuario a partir del BFS
+    (puntaje de puntuar_bfs), sin mirar el género.
+
+    Si el BFS da menos de n candidatas (por ejemplo, un usuario sin vistas),
+    se completa con las películas más vistas que el usuario no vio, marcadas
+    con origen "popularidad".
+    """
+    recomendaciones = puntuar_bfs(grafo, id_usuario)[:n]
 
     if len(recomendaciones) < n:
         # Respaldo: películas más vistas que no vio ni ya se eligieron
         elegidas = {r["movie_id"] for r in recomendaciones}
+        recomendaciones += recomendar_populares(grafo, id_usuario, n - len(recomendaciones), excluir=elegidas)
+
+    return recomendaciones
+
+
+def ranking_generos(grafo, id_usuario):
+    """Géneros que vio el usuario, del favorito al menos visto.
+
+    Primero su género favorito (el del nodo); luego el resto por cantidad de
+    películas vistas de ese género y, si empatan, en orden alfabético.
+    """
+    u = nodo_usuario(id_usuario)
+    conteo = {}
+    for p in grafo.vecinos(u, ARISTA_VISTA):
+        genero = grafo.nodos[p]["genero"]
+        conteo[genero] = conteo.get(genero, 0) + 1
+    favorito = grafo.nodos[u]["genero"]
+    resto = sorted((g for g in conteo if g != favorito), key=lambda g: (-conteo[g], g))
+    return ([favorito] if favorito in conteo else []) + resto
+
+
+def recomendar_por_generos(grafo, id_usuario, n=5, del_favorito=3):
+    """Recomendaciones del BFS repartidas por los géneros que más vio el usuario.
+
+    Las primeras `del_favorito` son de su género favorito y las siguientes, una
+    por cada género que le sigue en ranking_generos (2.º, 3.º, ...; si vio
+    menos géneros, se vuelve a empezar por el 2.º). Ej.: favorito Aventura,
+    luego Terror (15) y Comedia (13) -> Aventura x3, Terror, Comedia.
+
+    En cada género se elige la mejor candidata del BFS (puntuar_bfs) que aún no
+    se eligió; si el BFS no tiene ninguna de ese género, la más popular no vista
+    de ese género. Si aun así falta, se completa con el BFS y la popularidad
+    sin mirar el género. Sin vistas: solo popularidad.
+    """
+    generos = ranking_generos(grafo, id_usuario)
+    if not generos:
+        return recomendar_populares(grafo, id_usuario, n)
+
+    favorito, siguientes = generos[0], generos[1:] or generos[:1]
+    plan = [favorito] * min(del_favorito, n)
+    plan += [siguientes[i % len(siguientes)] for i in range(n - len(plan))]
+
+    candidatas = puntuar_bfs(grafo, id_usuario)
+    elegidas = set()
+    recomendaciones = []
+
+    def genero_de(r):
+        return grafo.nodos[nodo_pelicula(r["movie_id"])]["genero"]
+
+    for genero in plan:
+        r = next((c for c in candidatas if c["movie_id"] not in elegidas and genero_de(c) == genero), None)
+        if r is None:
+            populares = recomendar_populares(grafo, id_usuario, 1, excluir=elegidas, genero=genero)
+            r = populares[0] if populares else None
+        if r is not None:
+            elegidas.add(r["movie_id"])
+            recomendaciones.append(r)
+
+    # Respaldo si algún género se quedó sin películas no vistas
+    for c in candidatas:
+        if len(recomendaciones) >= n:
+            break
+        if c["movie_id"] not in elegidas:
+            elegidas.add(c["movie_id"])
+            recomendaciones.append(c)
+    if len(recomendaciones) < n:
         recomendaciones += recomendar_populares(grafo, id_usuario, n - len(recomendaciones), excluir=elegidas)
 
     return recomendaciones
@@ -181,8 +255,9 @@ def popularidad(grafo, p):
     return len(grafo.adyacencia[p])
 
 
-def recomendar_populares(grafo, id_usuario, n=5, excluir=()):
-    """Las n películas con más aristas "vista" que el usuario no vio.
+def recomendar_populares(grafo, id_usuario, n=5, excluir=(), genero=None):
+    """Las n películas con más aristas "vista" que el usuario no vio
+    (solo de `genero`, si se indica).
 
     Desempate por id. Tiempo: O(P log P) por ordenar las P películas.
     """
@@ -191,6 +266,7 @@ def recomendar_populares(grafo, id_usuario, n=5, excluir=()):
     populares = [
         p for p, atributos in grafo.nodos.items()
         if atributos["tipo"] == TIPO_PELICULA and p not in vistas_u and p not in excluir
+        and (genero is None or atributos["genero"] == genero)
     ]
     populares.sort(key=lambda p: (-popularidad(grafo, p), grafo.nodos[p]["id"]))
     return [

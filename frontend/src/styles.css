@@ -263,6 +263,10 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
   text-transform: uppercase;
   color: rgba(255,255,255,0.85);
 }
+.tarjeta-borde { border: 2px solid; }
+/* Tarjeta tipo póster (fila "Populares en GrafoFlix") */
+.tarjeta-vertical { width: 170px; aspect-ratio: 2 / 3; }
+.tarjeta-vertical .tarjeta-titulo { font-size: 15px; }
 .tarjeta-titulo { font-weight: 800; font-size: 16px; line-height: 1.15; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
 .tarjeta-info { font-size: 11px; color: #bbb; margin-top: 4px; }
 
@@ -452,6 +456,25 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
 .catalogo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .catalogo-grid .tarjeta { width: auto; }
 .catalogo-mas { display: flex; justify-content: center; margin-top: 30px; }
+.catalogo-vistas { margin-top: 44px; }
+.catalogo-vistas h2 { font-size: 20px; color: #fff; margin-bottom: 14px; }
+
+/* ---------------- Historial (películas vistas por género) ---------------- */
+.historial-volver { color: var(--gris); font-size: 14px; margin-bottom: 6px; padding: 0; }
+.historial-volver:hover { color: #fff; }
+.historial .chips-generos a {
+  border: 1px solid var(--chip-color, #444);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #ddd;
+  text-decoration: none;
+}
+.historial .chips-generos a:hover { background: var(--chip-color); color: #fff; }
+.historial-genero { margin-top: 36px; scroll-margin-top: 90px; }
+.historial-genero h2 { font-size: 20px; color: #fff; margin-bottom: 14px; padding-left: 10px; border-left: 4px solid; }
+.estadisticas button { background: #262626; border-radius: 6px; padding: 6px 12px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: background 0.15s; }
+.estadisticas button:hover, .estadisticas button:focus-visible { background: #3a3a3a; }
 
 .tarjeta-vista {
   position: absolute;
@@ -515,6 +538,7 @@ button.logo:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
   .navbar-izq button { font-size: 13px; }
   .flecha { display: none; }
   .tarjeta { width: 160px; }
+  .tarjeta-vertical { width: 120px; }
   .tarjeta-titulo { font-size: 14px; }
   .navbar-izq { gap: 14px; }
   .navbar-izq .logo { font-size: 20px; margin-right: 4px; }
