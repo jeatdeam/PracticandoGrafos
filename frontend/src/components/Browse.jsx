@@ -148,6 +148,21 @@ export default function Browse({ perfilId, onPerfil, onVerGrafo, onExplorar, onV
 
       <div className="filas">
         <MovieRow titulo="Recomendadas para ti" peliculas={detalle.recomendadas} onClick={setSeleccion} />
+        {detalle.por_director?.nombre && (
+          <MovieRow
+            titulo={`Más de ${detalle.por_director.nombre}, que dirigió ${detalle.por_director.vistas} de tus películas`}
+            peliculas={detalle.por_director.peliculas}
+            onClick={setSeleccion}
+          />
+        )}
+        {detalle.por_actor?.nombre && (
+          <MovieRow
+            titulo={`Con ${detalle.por_actor.nombre}, que aparece en ${detalle.por_actor.vistas} de tus películas`}
+            peliculas={detalle.por_actor.peliculas}
+            onClick={setSeleccion}
+          />
+        )}
+        <MovieRow titulo="Populares en GrafoFlix" peliculas={detalle.populares ?? []} onClick={setSeleccion} />
         <MovieRow titulo="Vistas recientemente" peliculas={detalle.peliculas_vistas} vistas onClick={setSeleccion} />
         {porGenero.map(([g, lista]) => (
           <MovieRow key={g} titulo={`Viste en ${g}`} peliculas={lista} vistas onClick={setSeleccion} />

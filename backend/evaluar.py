@@ -21,6 +21,9 @@ Recomendadores comparados (N = 5, igual que las 5 recomendaciones de la app):
     popularidad  las más vistas en entrenamiento
     genero       las primeras N no vistas del género favorito, en el orden del
                  catálogo (lo que hacía la app antes de usar BFS)
+    director     recomendar_por_atributo(..., "director"): no vistas del director
+                 que más se repite en entrenamiento, por popularidad
+    actor        recomendar_por_atributo(..., "actores"): igual con el actor
 
 Las vistas del dataset son sintéticas y aleatorias: el resultado mide qué tan
 bien se predicen vistas ocultas, no gustos reales.
@@ -34,13 +37,13 @@ import tempfile
 from collections import Counter
 
 from grafo import construir_grafo
-from recorridos import recomendar_bfs
+from recorridos import recomendar_bfs, recomendar_por_atributo
 
 N = 5
 PROPORCION_PRUEBA = 0.2
 POBLACIONES = [(25, 7), (25, 42), (100, 7), (100, 42)]
 SEMILLA_SEPARACION = 2026
-METODOS = ["bfs", "aleatorio", "popularidad", "genero"]
+METODOS = ["bfs", "aleatorio", "popularidad", "genero", "director", "actor"]
 
 
 # ------------------------------- Separación -------------------------------
@@ -76,6 +79,10 @@ def rec_bfs(grafo, id_usuario, n=N):
     return [r["movie_id"] for r in recomendar_bfs(grafo, id_usuario, n)]
 
 
+def rec_atributo(grafo, id_usuario, atributo, n=N):
+    return [r["movie_id"] for r in recomendar_por_atributo(grafo, id_usuario, atributo, n)["recomendaciones"]]
+
+
 def rec_aleatorio(vistas_usuario, catalogo, rng, n=N):
     vistas = set(vistas_usuario)
     no_vistas = [m for m in catalogo if m not in vistas]
@@ -105,7 +112,7 @@ def precision_recall(recomendadas, prueba, n=N):
 
 
 def evaluar(peliculas, vistas, n=N, proporcion=PROPORCION_PRUEBA, semilla=SEMILLA_SEPARACION):
-    """Evalúa los cuatro recomendadores con la misma separación.
+    """Evalúa los recomendadores con la misma separación.
 
     peliculas: lista de dicts con "movie_id" y "genero" (orden del catálogo).
     vistas: dict id_usuario -> lista de movie_id.
@@ -134,6 +141,8 @@ def evaluar(peliculas, vistas, n=N, proporcion=PROPORCION_PRUEBA, semilla=SEMILL
             "aleatorio": rec_aleatorio(entrenamiento[u], catalogo, rng, n),
             "popularidad": rec_popularidad(entrenamiento[u], catalogo, conteo, n),
             "genero": rec_genero(entrenamiento[u], catalogo, genero_de, usuarios[u]["genero_favorito"], n),
+            "director": rec_atributo(grafo, u, "director", n),
+            "actor": rec_atributo(grafo, u, "actores", n),
         }
         for metodo, recomendadas in listas.items():
             p, r, a = precision_recall(recomendadas, prueba[u], n)

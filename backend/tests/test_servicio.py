@@ -113,6 +113,37 @@ class TestServicio(unittest.TestCase):
             if vistas:  # con vistas, el BFS da candidatas en esta población
                 self.assertEqual(recomendadas[0]["origen"], "bfs")
 
+    def test_filas_por_director_actor_y_popularidad(self):
+        for id_usuario, usuario in self.proyecto.usuarios_registrados.items():
+            detalle = self.proyecto.detalle_usuario(id_usuario)
+            vistas = usuario.get_peliculasVistas()
+            ids_vistas = {p["movie_id"] for p in vistas}
+
+            populares = detalle["populares"]
+            self.assertEqual(len(populares), self.servicio.PELICULAS_POR_FILA)
+            self.assertFalse({p["id"] for p in populares} & ids_vistas)
+            self.assertEqual([p["puntaje"] for p in populares], sorted((p["puntaje"] for p in populares), reverse=True))
+
+            for clave, origen in (("por_director", "director"), ("por_actor", "actor")):
+                fila = detalle[clave]
+                if not vistas:
+                    self.assertIsNone(fila["nombre"])
+                    self.assertEqual(fila["peliculas"], [])
+                    continue
+                self.assertGreaterEqual(fila["vistas"], 1)
+                self.assertEqual(len(fila["peliculas"]), self.servicio.PELICULAS_POR_FILA)
+                for p in fila["peliculas"]:
+                    self.assertNotIn(p["id"], ids_vistas)
+                    self.assertEqual(p["origen"], origen)
+                    if origen == "director":
+                        self.assertEqual(p["director"], fila["nombre"])
+                    else:
+                        self.assertIn(fila["nombre"], p["actores"])
+
+            if vistas:  # el favorito es el que más se repite en lo que vio
+                directores = [p["director"] for p in vistas]
+                self.assertEqual(directores.count(detalle["por_director"]["nombre"]), max(directores.count(d) for d in directores))
+
     def test_kruskal_en_la_app(self):
         k = self.proyecto.kruskal()
         self.assertEqual(k["arboles"], k["componentes_dfs"])

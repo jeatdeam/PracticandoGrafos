@@ -80,7 +80,7 @@ class TestEvaluar(unittest.TestCase):
         self.assertEqual(resultado["usuarios_evaluados"], 2)
         self.assertEqual(resultado["metodos"]["bfs"]["precision"], 1.0)
         self.assertEqual(resultado["metodos"]["bfs"]["recall"], 1.0)
-        self.assertEqual(set(resultado["metodos"]), {"bfs", "aleatorio", "popularidad", "genero"})
+        self.assertEqual(set(resultado["metodos"]), {"bfs", "aleatorio", "popularidad", "genero", "director", "actor"})
 
     def test_usuarios_sin_prueba_se_informan(self):
         vistas = {0: CATALOGO[:10], 1: ["M1", "M2"], 2: []}

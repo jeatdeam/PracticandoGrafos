@@ -167,23 +167,109 @@ def recomendar_bfs(grafo, id_usuario, n=5):
     recomendaciones = recomendaciones[:n]
 
     if len(recomendaciones) < n:
-        # Respaldo: películas más vistas (más aristas "vista") que no vio ni ya se eligieron
-        elegidas = {nodo_pelicula(r["movie_id"]) for r in recomendaciones}
-        populares = [
-            p for p, atributos in grafo.nodos.items()
-            if atributos["tipo"] == TIPO_PELICULA and p not in vistas_u and p not in elegidas
-        ]
-        populares.sort(key=lambda p: (-len(grafo.adyacencia[p]), grafo.nodos[p]["id"]))
-        for p in populares[: n - len(recomendaciones)]:
-            recomendaciones.append({
-                "movie_id": grafo.nodos[p]["id"],
-                "origen": "popularidad",
-                "puntaje": len(grafo.adyacencia[p]),
-                "usuarios": [],
-                "camino": [],
-            })
+        # Respaldo: películas más vistas que no vio ni ya se eligieron
+        elegidas = {r["movie_id"] for r in recomendaciones}
+        recomendaciones += recomendar_populares(grafo, id_usuario, n - len(recomendaciones), excluir=elegidas)
 
     return recomendaciones
+
+
+# ------------------------- Popularidad, director y actor -------------------------
+
+def popularidad(grafo, p):
+    """Popularidad de una película = su grado: cuántas aristas "vista" tiene."""
+    return len(grafo.adyacencia[p])
+
+
+def recomendar_populares(grafo, id_usuario, n=5, excluir=()):
+    """Las n películas con más aristas "vista" que el usuario no vio.
+
+    Desempate por id. Tiempo: O(P log P) por ordenar las P películas.
+    """
+    vistas_u = set(grafo.vecinos(nodo_usuario(id_usuario), ARISTA_VISTA))
+    excluir = {nodo_pelicula(m) for m in excluir}
+    populares = [
+        p for p, atributos in grafo.nodos.items()
+        if atributos["tipo"] == TIPO_PELICULA and p not in vistas_u and p not in excluir
+    ]
+    populares.sort(key=lambda p: (-popularidad(grafo, p), grafo.nodos[p]["id"]))
+    return [
+        {
+            "movie_id": grafo.nodos[p]["id"],
+            "origen": "popularidad",
+            "puntaje": popularidad(grafo, p),
+            "usuarios": [],
+            "camino": [],
+        }
+        for p in populares[:n]
+    ]
+
+
+def valores_de(grafo, p, atributo):
+    """Valores de un atributo de la película como lista ("actores" ya es lista)."""
+    valor = grafo.nodos[p].get(atributo)
+    if valor is None:
+        return []
+    return list(valor) if isinstance(valor, (list, tuple)) else [valor]
+
+
+def favorito_por_atributo(grafo, id_usuario, atributo):
+    """El director (o actor) que más se repite en las películas que vio el usuario.
+
+    Se recorren sus aristas "vista" (las películas del nivel 1 del BFS) y se
+    cuenta cada valor del atributo. Empate: el primero en orden alfabético.
+    Devuelve (valor, cantidad) o (None, 0) si no vio películas.
+    """
+    conteo = {}
+    for p in grafo.vecinos(nodo_usuario(id_usuario), ARISTA_VISTA):
+        for valor in valores_de(grafo, p, atributo):
+            conteo[valor] = conteo.get(valor, 0) + 1
+    if not conteo:
+        return None, 0
+    valor = min(conteo, key=lambda v: (-conteo[v], v))
+    return valor, conteo[valor]
+
+
+def recomendar_por_atributo(grafo, id_usuario, atributo, n=5):
+    """Películas no vistas del director o actor favorito del usuario.
+
+    atributo: "director" o "actores". El favorito sale de favorito_por_atributo;
+    las candidatas son las películas no vistas que lo tienen, ordenadas por
+    popularidad (grado) y luego por id. Tiempo: O(m + P log P), con m = vistas
+    del usuario y P = películas del catálogo.
+
+    Devuelve {"favorito", "vistas_del_favorito", "recomendaciones"}; cada
+    recomendación tiene el mismo formato que las de recomendar_bfs, con origen
+    "director" o "actor".
+    """
+    if atributo not in ("director", "actores"):
+        raise ValueError('El atributo debe ser "director" o "actores"')
+    favorito, cantidad = favorito_por_atributo(grafo, id_usuario, atributo)
+    if favorito is None:
+        return {"favorito": None, "vistas_del_favorito": 0, "recomendaciones": []}
+
+    vistas_u = set(grafo.vecinos(nodo_usuario(id_usuario), ARISTA_VISTA))
+    candidatas = [
+        p for p, atributos in grafo.nodos.items()
+        if atributos["tipo"] == TIPO_PELICULA and p not in vistas_u
+        and favorito in valores_de(grafo, p, atributo)
+    ]
+    candidatas.sort(key=lambda p: (-popularidad(grafo, p), grafo.nodos[p]["id"]))
+    origen = "director" if atributo == "director" else "actor"
+    return {
+        "favorito": favorito,
+        "vistas_del_favorito": cantidad,
+        "recomendaciones": [
+            {
+                "movie_id": grafo.nodos[p]["id"],
+                "origen": origen,
+                "puntaje": popularidad(grafo, p),
+                "usuarios": [],
+                "camino": [],
+            }
+            for p in candidatas[:n]
+        ],
+    }
 
 
 # ----------------------------------- DFS -----------------------------------

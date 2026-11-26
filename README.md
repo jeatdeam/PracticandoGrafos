@@ -33,7 +33,7 @@ Abrir http://localhost:5173
 | Método | Ruta                  | Descripción                                        |
 |--------|-----------------------|----------------------------------------------------|
 | GET    | `/api/usuarios`       | Lista de perfiles                                  |
-| GET    | `/api/usuarios/{id}`  | Perfil, películas vistas, recomendadas, conexiones |
+| GET    | `/api/usuarios/{id}`  | Perfil, películas vistas, recomendadas (BFS, director, actor, populares), conexiones |
 | GET    | `/api/grafo`          | Grafo completo (usuarios + géneros)                |
 | GET    | `/api/grafo/{id}`     | Sub-grafo de un usuario                            |
 | GET    | `/api/matriz`         | Matriz de adyacencia                               |
@@ -58,12 +58,22 @@ Un único grafo no dirigido (`backend/grafo.py`, listas de adyacencia):
 - `backend/recorridos.py`: BFS (cola FIFO, niveles, padres; candidatos por el camino
   usuario → película → usuario → película y camino mínimo entre usuarios) y DFS iterativo
   (pila; componentes conexas del grafo completo y de la vista de usuarios).
+- Recomendaciones por atributo (`recorridos.py`): el director y el actor que más se repiten en las
+  aristas `vista` del usuario (empate: orden alfabético) y sus películas no vistas, ordenadas por
+  popularidad (grado de la película = cuántos la vieron). La fila "Populares" usa ese mismo grado.
 
 ## Pruebas
 
 ```bash
 cd backend
 python -m unittest discover -s tests -v
+```
+
+Para comparar los recomendadores (BFS, aleatorio, popularidad, género, director y actor) con Precision@5 y Recall@5:
+
+```bash
+cd backend
+python evaluar.py
 ```
 
 Las pruebas de `tests/test_servicio.py` se omiten si faltan las dependencias de `requirements.txt` (y `httpx` para la API).

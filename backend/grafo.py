@@ -41,6 +41,13 @@ def nodo_pelicula(movie_id):
     return f"{PREFIJO_PELICULA}{movie_id}"
 
 
+def separar_actores(actores):
+    """"Pedro Pascal, Ana de Armas" -> ["Pedro Pascal", "Ana de Armas"]."""
+    if not isinstance(actores, str):
+        return []
+    return [a.strip() for a in actores.split(",") if a.strip()]
+
+
 def clave_arista(a, b):
     """La misma clave para (a, b) y (b, a): el grafo es no dirigido."""
     return (a, b) if a <= b else (b, a)
@@ -114,7 +121,9 @@ def motivos_conexion(genero_1, genero_2, comunes, min_comunes=MIN_PELICULAS_COMU
 def construir_grafo(peliculas, usuarios, min_comunes=MIN_PELICULAS_COMUNES):
     """Construye el grafo completo.
 
-    peliculas: iterable de dicts con al menos "movie_id" y "genero".
+    peliculas: iterable de dicts con al menos "movie_id" y "genero"
+               ("director" y "actores" son opcionales: se guardan como
+               atributos del nodo para recomendar por director y actor).
     usuarios:  dict id_usuario -> {"nombre", "genero_favorito", "vistas": iterable de movie_id}
 
     Coste: O(P + suma de vistas) para nodos y aristas "vista", y
@@ -132,6 +141,8 @@ def construir_grafo(peliculas, usuarios, min_comunes=MIN_PELICULAS_COMUNES):
             id=p["movie_id"],
             titulo=p.get("titulo"),
             genero=p["genero"],
+            director=p.get("director"),
+            actores=separar_actores(p.get("actores")),
         )
 
     vistas = {}

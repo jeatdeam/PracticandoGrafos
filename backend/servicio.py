@@ -14,13 +14,20 @@ CARPETA = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, CARPETA)
 from usuario import Usuario  # noqa: E402
 from grafo import ARISTA_USUARIO, MOTIVO_GENERO, TIPO_USUARIO, Grafo, construir_grafo, nodo_usuario  # noqa: E402
-from recorridos import componentes_usuarios, recomendar_bfs, recorrido_pasos  # noqa: E402
+from recorridos import (  # noqa: E402
+    componentes_usuarios,
+    recomendar_bfs,
+    recomendar_populares,
+    recomendar_por_atributo,
+    recorrido_pasos,
+)
 from mst import bosque_expansion_minima  # noqa: E402
 
 CANTIDAD_USUARIOS = 25
 MIN_USUARIOS, MAX_USUARIOS = 2, 300
 CANTIDAD_PELICULAS_VISTAS = 100
 PELICULAS_A_RECOMENDAR = 5
+PELICULAS_POR_FILA = 10  # filas "Más de tu director", "Más de tu actor" y "Populares"
 SIN_GENERO = "sin peliculas vistas"
 
 # En Vercel solo /tmp es escribible (y no es persistente entre instancias)
@@ -93,6 +100,7 @@ class Project_Streaming:
         self.grafo_genero = None    # Grafo con nodos de usuario y aristas de mismo género
         self.vecinos_genero = {}    # id -> [ids del mismo género favorito]
         self.recomendaciones = {}
+        self.filas_extra = {}       # id -> filas por director, actor y popularidad
         crear_tablas()
 
     def iniciar(self):
@@ -232,6 +240,7 @@ class Project_Streaming:
         """Descarta las recomendaciones guardadas: el grafo cambió. Se vuelven a
         calcular con BFS solo cuando se pide un perfil (recomendaciones_de)."""
         self.recomendaciones = {}
+        self.filas_extra = {}
 
     def recomendaciones_de(self, id_usuario):
         """Recomendaciones del usuario con BFS (recorridos.recomendar_bfs)."""
@@ -240,6 +249,31 @@ class Project_Streaming:
                 self.grafo_completo, id_usuario, PELICULAS_A_RECOMENDAR
             )
         return self.recomendaciones[id_usuario]
+
+    def filas_extra_de(self, id_usuario):
+        """Recomendaciones por director favorito, actor favorito y popularidad
+        (recorridos.recomendar_por_atributo y recomendar_populares). Se guardan
+        hasta que el grafo cambie, igual que las del BFS."""
+        if id_usuario not in self.filas_extra:
+            por_director = recomendar_por_atributo(self.grafo_completo, id_usuario, "director", PELICULAS_POR_FILA)
+            por_actor = recomendar_por_atributo(self.grafo_completo, id_usuario, "actores", PELICULAS_POR_FILA)
+            self.filas_extra[id_usuario] = {
+                "por_director": {
+                    "nombre": por_director["favorito"],
+                    "vistas": por_director["vistas_del_favorito"],
+                    "peliculas": [self.recomendacion_a_json(r) for r in por_director["recomendaciones"]],
+                },
+                "por_actor": {
+                    "nombre": por_actor["favorito"],
+                    "vistas": por_actor["vistas_del_favorito"],
+                    "peliculas": [self.recomendacion_a_json(r) for r in por_actor["recomendaciones"]],
+                },
+                "populares": [
+                    self.recomendacion_a_json(r)
+                    for r in recomendar_populares(self.grafo_completo, id_usuario, PELICULAS_POR_FILA)
+                ],
+            }
+        return self.filas_extra[id_usuario]
 
     def recomendacion_a_json(self, recomendacion):
         """Película recomendada + por qué: origen, puntaje y el camino del BFS
@@ -300,6 +334,7 @@ class Project_Streaming:
             # Las más recientes primero
             "peliculas_vistas": [pelicula_a_json(p) for p in reversed(usuario.get_peliculasVistas())],
             "recomendadas": [self.recomendacion_a_json(r) for r in self.recomendaciones_de(id_usuario)],
+            **self.filas_extra_de(id_usuario),
             "generos": dict(sorted(conteo.items(), key=lambda x: -x[1])),
             "conexiones": [
                 {
